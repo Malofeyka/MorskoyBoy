@@ -1,0 +1,3035 @@
+#define _CRT_SECURE_NO_WARNINGS
+#include <iostream>
+#include <windows.h>
+#include <fstream>
+#include <string>
+#include <stdlib.h>
+
+using namespace std;
+
+/*
+
+Обозначения в интовом поле:
+
+0 - пустая клетка
+3 - клетка со звёздочкой (прострелянная или клетка у убитого корабля)
+4 - убитая клетка
+5 - раненная клетка
+6 - клетка с однопалубным
+7 - клетка с двухпалубным
+8 - клетка с трёхпалубным
+9 - клетка с живым четырёхпалубным
+1 - клетка с раненным четырёхпалубным
+
+Обозначения в чаровом поле:
+
+'-' - пустая клетка
+'*' - прострелянная клетка или клетка у убитого корабля
+'#' - живая клетка корабля
+'Х' - убитая клетка корабля
+
+*/
+
+void troiki(int* pole, int height, int width) {
+    //простая установка троек вокруг кораблей 
+
+    for (int i = 0; i < 10; i++)
+    {
+        for (int j = 0; j < 10; j++)
+        {
+            if (*(pole + i * width + j) > 5)
+            {
+                if (i + 1 <= 9 and *(pole + (i + 1) * width + j) < 5) //тройка внизу
+                {
+                    *(pole + (i + 1) * width + j) = 3;
+                }
+                if (i - 1 >= 0 and *(pole + (i - 1) * width + j) < 5) //тройка вверху
+                {
+                    *(pole + (i - 1) * width + j) = 3;
+                }
+                if (j + 1 <= 9 and *(pole + i * width + (j + 1)) < 5) //тройка справа
+                {
+                    *(pole + i * width + (j + 1)) = 3;
+                }
+                if (j - 1 >= 0 and *(pole + i * width + (j - 1)) < 5) //тройка слева
+                {
+                    *(pole + i * width + (j - 1)) = 3;
+                }
+                if (i + 1 <= 9 and j + 1 <= 9 and *(pole + (i + 1) * width + (j + 1)) < 5) //тройка справа снизу
+                {
+                    *(pole + (i + 1) * width + (j + 1)) = 3;
+                }
+                if (i - 1 <= 9 and j + 1 <= 9 and *(pole + (i - 1) * width + (j + 1)) < 5) //тройка справа сврху
+                {
+                    *(pole + (i - 1) * width + (j + 1)) = 3;
+                }
+                if (i - 1 >= 0 and j - 1 >= 0 and *(pole + (i - 1) * width + (j - 1)) < 5) //тройка слева сверху
+                {
+                    *(pole + (i - 1) * width + (j - 1)) = 3;
+                }
+                if (i + 1 <= 9 and j - 1 >= 0 and *(pole + (i + 1) * width + (j - 1)) < 5) //тройка слева снизу
+                {
+                    *(pole + (i + 1) * width + (j - 1)) = 3;
+                }
+            }
+        }
+    }
+}
+
+void cout_pole(int* arr, int height, int width) {
+    //вывод интового поля (технический, не используется)
+    int nums[10] = { 1,2,3,4,5,6,7,8,9,10 };
+    for (int i = 0; i < height; ++i) {
+        if (i == 0) {
+            cout << ' ' << 0 << "";
+        }
+        cout << ' ' << nums[i];
+    }
+    cout << endl;
+    for (int i = 0; i < height; ++i) {
+        if (i + 1 != 10) {
+            cout << " " << nums[i] << " ";
+        }
+        else if (i + 1 == 10) {
+            cout << 10 << ' ';
+        }
+        for (int j = 0; j < width; ++j)
+            cout << *(arr + i * width + j) << " ";
+        cout << endl;
+    }
+}
+
+void cout_pole_player(char* arr, int height, int width) {
+    //вывод чарового поля (поле для игрока)
+    int nums[10] = { 1,2,3,4,5,6,7,8,9,10 };
+    string bukvs = "АБВГДЕЖЗИК";
+    for (int i = 0; i < height; ++i) {
+        if (i == 0) {
+            cout << ' ' << ' ';
+        }
+        cout << ' ' << bukvs[i];
+    }
+    cout << endl;
+    for (int i = 0; i < height; ++i) {
+        if (i + 1 != 10) {
+            cout << " " << nums[i] << " ";
+        }
+        else if (i + 1 == 10) {
+            cout << 10 << ' ';
+        }
+        for (int j = 0; j < width; ++j)
+            cout << *(arr + i * width + j) << " ";
+        cout << endl;
+    }
+}
+
+void cout_polya_PK(char* arr, char* arr_player, int height, int width, int count, int count_player) {
+    //вывод полей для режима игрок-комп
+    cout << "Поле противника: " << endl;
+    cout_pole_player(arr, height, width);
+    cout << "Живых кораблей: " << count << endl;
+    cout << "Ваше поле: " << endl;
+    cout_pole_player(arr_player, height, width);
+    cout << "Живых кораблей: " << count_player << endl;
+}
+
+void cout_polya_KK(char* arr, char* arr_2, int height, int width, int count1, int count2) {
+    //вывод полей для режима комп-комп
+    cout << "Поле компа-1: " << endl;
+    cout_pole_player(arr, height, width);
+    cout << "Живых кораблей: " << count1 << endl;
+    cout << "Поле компа-2: " << endl;
+    cout_pole_player(arr_2, height, width);
+    cout << "Живых кораблей: " << count2 << endl;
+}
+
+void set_ships(int* arr, int height, int width) {
+    //автоматическая расстановка кораблей
+
+    /*четырёхпалубный*/while (true)
+    {
+        int shipX = rand() % 10;
+        int shipY = rand() % 10;
+        int shipDirection = rand() % 2;
+
+        if (shipDirection == 0)//вниз
+        {
+            if (shipX + 3 <= 9)
+            {
+                for (int i = 0; i < 4; i++)
+                {
+                    *(arr + shipX * width + shipY) = 9;
+                    shipX++;
+                }
+                break;
+            }
+            else
+            {
+
+                continue;
+            }
+        }
+        if (shipDirection == 1) //вправо
+        {
+            if (shipY + 3 <= 9)
+            {
+                for (int i = 0; i < 4; i++)
+                {
+                    *(arr + shipX * width + shipY) = 9;
+                    shipY++;
+                }
+                break;
+            }
+            else
+            {
+
+                continue;
+            }
+        }
+
+
+    }
+    troiki(arr, height, width);
+    /*трёхпалубный*/for (int i = 0; i < 2; i++) {
+        while (true) //цикл установки трёхпалубного
+        {
+            int shipX = rand() % 10;
+            int shipY = rand() % 10;
+            int shipDirection = rand() % 2;
+
+
+
+            if (shipDirection == 0)//вниз
+            {
+                if (shipX + 2 <= 9 and *(arr + shipX * width + shipY) != 3 and *(arr + (shipX + 1) * width + shipY) != 3 and *(arr + (shipX + 2) * width + shipY) != 3 and *(arr + shipX * width + shipY) < 6 and *(arr + (shipX + 1) * width + shipY) < 6 and *(arr + (shipX + 2) * width + shipY) < 6)
+                {
+                    for (int i = 0; i < 3; i++)
+                    {
+                        *(arr + shipX * width + shipY) = 8;
+                        shipX++;
+                    }
+                    break;
+                }
+                else
+                {
+
+                    continue;
+                }
+            }
+            if (shipDirection == 1) //вправо
+            {
+                if (shipY + 2 <= 9 and *(arr + shipX * width + shipY) != 3 and *(arr + shipX * width + (shipY + 1)) != 3 and *(arr + shipX * width + (shipY + 2)) != 3 and *(arr + shipX * width + shipY) < 6 and *(arr + shipX * width + (shipY + 1)) < 6 and *(arr + shipX * width + (shipY + 2)) < 6)
+                {
+                    for (int i = 0; i < 3; i++)
+                    {
+                        *(arr + shipX * width + shipY) = 8;
+                        shipY++;
+                    }
+                    break;
+                }
+                else
+                {
+
+                    continue;
+                }
+            }
+
+        }
+        troiki(arr, height, width);
+    }
+    /*двухпалубный*/for (int i = 0; i < 3; i++) {
+        while (true) //цикл установки двухпалубного
+        {
+            int shipX = rand() % 10;
+            int shipY = rand() % 10;
+            int shipDirection = rand() % 2;
+
+
+
+            if (shipDirection == 0)//вниз
+            {
+                if (shipX + 1 <= 9 and *(arr + shipX * width + shipY) != 3 and *(arr + (shipX + 1) * width + shipY) != 3 and *(arr + shipX * width + shipY) < 6 and *(arr + (shipX + 1) * width + shipY) < 6)
+                {
+                    for (int i = 0; i < 2; i++)
+                    {
+                        *(arr + shipX * width + shipY) = 7;
+                        shipX++;
+                    }
+                    break;
+                }
+                else
+                {
+
+                    continue;
+                }
+            }
+            if (shipDirection == 1) //вправо
+            {
+                if (shipY + 1 <= 9 and *(arr + shipX * width + shipY) != 3 and *(arr + shipX * width + (shipY + 1)) != 3 and *(arr + shipX * width + shipY) < 6 and *(arr + shipX * width + (shipY + 1)) < 6)
+                {
+                    for (int i = 0; i < 2; i++)
+                    {
+                        *(arr + shipX * width + shipY) = 7;
+                        shipY++;
+                    }
+                    break;
+                }
+                else
+                {
+
+                    continue;
+                }
+            }
+
+        }
+        troiki(arr, height, width);
+    }
+    /*однопалубный*/for (int i = 0; i < 4; i++) {
+        while (true)
+        {
+            int shipX = rand() % 10;
+            int shipY = rand() % 10;
+            if (*(arr + shipX * width + shipY) < 6 && *(arr + shipX * width + shipY) != 3) {
+                *(arr + shipX * width + shipY) = 6;
+                troiki(arr, height, width);
+                break;
+            }
+            else {
+                continue;
+            }
+        }
+    }
+}
+
+void clear3(int* arr, int height, int width) {
+    //очистка поля от троек
+    for (int i = 0; i < 10; i++)
+    {
+        for (int j = 0; j < 10; j++)
+        {
+            if (*(arr + i * width + j) == 3)
+            {
+                *(arr + i * width + j) = 0;
+            }
+        }
+    }
+}
+
+int menu() {
+    system("cls");
+    int ch1;
+    int ch2;
+    cout << ">>> Морской бой <<<" << endl << endl;
+    cout << "Здравия желаю, капитан! \nКак насчёт уничтожить несколько кораблей сегодня?\n";
+    cout << "Выберите режим игры!" << endl;
+    cout << "1. Компьютер играет против вас" << endl;
+    cout << "2. Компьютер играет против компьютера" << endl;
+    cout << "3. Выйти из игры\nВыбор>>>";
+    cin >> ch1;
+
+    if (ch1 == 1) {
+        system("cls");
+        ifstream check("game.txt");
+        if (check.is_open()) //проверка на существование файла сохранения
+        {
+            cout << "Загрузить игру?(д/н)" << endl;
+            string ch555;
+            //cin.ignore();
+            cin >> ch555;
+            if (ch555 == "д" or ch555 == "Д")
+            {
+                return 555;
+            }
+            else if (ch555 != "д" and ch555 != "н" and ch555 != "Д" and ch555 != "Н")
+            {
+                cout << "Некорректный ввод!";
+                Sleep(1000);
+                menu();
+            }
+        }
+        check.close();
+        system("cls");
+        cout << "1. Вы расставляете корабли сами" << endl;
+        cout << "2. Компьютер расставляет корабли за вас\nВыбор>>>";
+        cin >> ch2;
+        if (ch2 != 1 and ch2 != 2)
+        {
+            cout << "Некорректный ввод!";
+            Sleep(1000);
+            menu();
+        }
+        return ch2;
+    }
+
+    else if (ch1 == 2)
+    {
+        return 3;
+    }
+
+    else if (ch1 == 3)
+    {
+        return 0;
+    }
+
+    else
+    {
+        cout << "Некорректный ввод!";
+        Sleep(1000);
+        menu();
+    }
+
+}
+
+void zvezdi(int* pole, int height, int width, char* pole2) {
+    //установка троек вокруг убитых кораблей на интовом поле 
+    //и одновременная установка звёздочек на чаровом поле
+
+    for (int i = 0; i < 10; i++)
+    {
+        for (int j = 0; j < 10; j++)
+        {
+            if (*(pole + i * width + j) == 4)
+            {
+                if (i + 1 <= 9 and *(pole + (i + 1) * width + j) == 0 or *(pole + (i + 1) * width + j) == 3) //тройка внизу
+                {
+                    *(pole + (i + 1) * width + j) = 3;
+                    *(pole2 + (i + 1) * width + j) = '*';
+                }
+                if (i - 1 >= 0 and *(pole + (i - 1) * width + j) == 0 or *(pole + (i - 1) * width + j) == 3) //тройка вверху
+                {
+                    *(pole + (i - 1) * width + j) = 3;
+                    *(pole2 + (i - 1) * width + j) = '*';
+                }
+                if (j + 1 <= 9 and *(pole + i * width + (j + 1)) == 0 or *(pole + i * width + (j + 1)) == 3) //тройка справа
+                {
+                    *(pole + i * width + (j + 1)) = 3;
+                    *(pole2 + i * width + (j + 1)) = '*';
+                }
+                if (j - 1 >= 0 and *(pole + i * width + (j - 1)) == 0 or *(pole + i * width + (j - 1)) == 3) //тройка слева
+                {
+                    *(pole + i * width + (j - 1)) = 3;
+                    *(pole2 + i * width + (j - 1)) = '*';
+                }
+                if (i + 1 <= 9 and j + 1 <= 9 and *(pole + (i + 1) * width + (j + 1)) == 0 or *(pole + (i + 1) * width + (j + 1)) == 3) //тройка справа снизу
+                {
+                    *(pole + (i + 1) * width + (j + 1)) = 3;
+                    *(pole2 + (i + 1) * width + (j + 1)) = '*';
+                }
+                if (i - 1 <= 9 and j + 1 <= 9 and *(pole + (i - 1) * width + (j + 1)) == 0 or *(pole + (i - 1) * width + (j + 1)) == 3) //тройка справа сврху
+                {
+                    *(pole + (i - 1) * width + (j + 1)) = 3;
+                    *(pole2 + (i - 1) * width + (j + 1)) = '*';
+                }
+                if (i - 1 >= 0 and j - 1 >= 0 and *(pole + (i - 1) * width + (j - 1)) == 0 or *(pole + (i - 1) * width + (j - 1)) == 3) //тройка слева сверху
+                {
+                    *(pole + (i - 1) * width + (j - 1)) = 3;
+                    *(pole2 + (i - 1) * width + (j - 1)) = '*';
+                }
+                if (i + 1 <= 9 and j - 1 >= 0 and *(pole + (i + 1) * width + (j - 1)) == 0 or *(pole + (i + 1) * width + (j - 1)) == 3) //тройка слева снизу
+                {
+                    *(pole + (i + 1) * width + (j - 1)) = 3;
+                    *(pole2 + (i + 1) * width + (j - 1)) = '*';
+                }
+            }
+        }
+    }
+}
+
+int isVictory(int* pole, int height, int width) {
+    //проверка на наличие живых кораблей на определённом поле (проверка на победу)
+    int count = 0;
+    for (int i = 0; i < height; i++)
+    {
+        for (int j = 0; j < width; j++)
+        {
+            if (*(pole + i * width + j) > 5)
+            {
+                count++;
+            }
+        }
+    }
+    if (count > 0)
+        return 1;
+    else
+        return 0;
+}
+
+int isDead(int* pole, char* pole_out, int height, int width, int shoti, int shotj) {
+    //проверка на статус корабля, в который совершено попадание
+
+    if (*(pole + shoti * width + shotj) == 6)
+    {//если попадание совершено в однопалубный
+
+        *(pole + shoti * width + shotj) = 4; //корабль объявляется убитым
+        *(pole_out + shoti * width + shotj) = 'X';
+        zvezdi(pole, height, width, pole_out);
+
+
+        //cout << endl << "Однопалубный убит" << endl;
+        //return 1;
+        int num = isVictory(pole, height, width);
+        if (num == 0)
+        {
+            //cout << "\nGAME OVER\n";
+            return 0;
+        }
+    }
+
+    if (*(pole + shoti * width + shotj) == 7)
+    {//если попадание совершено в двухпалубный
+
+        *(pole + shoti * width + shotj) = 5; //клетка попадания объявляется "раненной"
+        *(pole_out + shoti * width + shotj) = 'X';
+
+
+        if (*(pole + shoti * width + (shotj + 1)) == 5
+            or
+            *(pole + (shoti + 1) * width + shotj) == 5
+            or
+            *(pole + shoti * width + (shotj - 1)) == 5
+            or
+            *(pole + (shoti - 1) * width + shotj) == 5) //5 - раненная клетка корабля
+        {//если вокруг точки попадания есть ещё одна раненная клетка корабля
+            if (*(pole + shoti * width + (shotj + 1)) == 5) {//если вправо
+                *(pole + shoti * width + (shotj + 1)) = 4;//корабль объявляется убитым
+                *(pole + shoti * width + shotj) = 4;
+            }
+            if (*(pole + (shoti + 1) * width + shotj) == 5) {//если вниз
+                *(pole + (shoti + 1) * width + shotj) = 4;//корабль объявляется убитым
+                *(pole + shoti * width + shotj) = 4;
+            }
+            if (*(pole + shoti * width + (shotj - 1)) == 5) {//если влево
+                *(pole + shoti * width + shotj) = 4;//корабль объявляется убитым
+                *(pole + shoti * width + (shotj - 1)) = 4;
+            }
+            if (*(pole + (shoti - 1) * width + shotj) == 5) {//если вверх
+                *(pole + shoti * width + shotj) = 4;//корабль объявляется убитым
+                *(pole + (shoti - 1) * width + shotj) = 4;
+            }
+            zvezdi(pole, height, width, pole_out);
+            //cout << endl << "Двухпалубный убит" << endl;
+            //return 1;
+            int num = isVictory(pole, height, width);
+            if (num == 0)
+            {
+                //cout << "\nGAME OVER\n";
+                return 0;
+            }
+        }
+        /*Возможно можно убрать*/
+        if (*(pole + shoti * width + (shotj + 1)) == 7
+            or
+            *(pole + (shoti + 1) * width + shotj) == 7
+            or
+            *(pole + shoti * width + (shotj - 1)) == 7
+            or
+            *(pole + (shoti - 1) * width + shotj) == 7)
+        { //если вокруг точки попадания есть "живая" клетка
+            *(pole + shoti * width + shotj) = 5;
+            *(pole_out + shoti * width + shotj) = 'X';
+            //cout << endl << "Двухпалубный ранен" << endl;
+            //return 2;
+        }
+    }
+
+    if (*(pole + shoti * width + shotj) == 8)
+        //если попадание совершено в трёхпалубный
+
+    {
+        //выстрел произведён в первую палубу горизонтально стоящего трёхпалубного
+        if (*(pole + shoti * width + (shotj + 1)) == 5 and *(pole + shoti * width + (shotj + 2)) == 5)
+        {//если обе оставшиеся клетки раненные
+            *(pole + shoti * width + shotj) = 4;
+            *(pole + shoti * width + (shotj + 1)) = 4;
+            *(pole + shoti * width + (shotj + 2)) = 4;
+            *(pole_out + shoti * width + shotj) = 'X';
+            zvezdi(pole, height, width, pole_out);
+            // return 1;
+            int num = isVictory(pole, height, width);
+            if (num == 0)
+            {
+                //cout << "\nGAME OVER\n";
+                return 0;
+            }
+        }
+        if ((*(pole + shoti * width + (shotj + 1)) == 5 and *(pole + shoti * width + (shotj + 2)) == 8) or (*(pole + shoti * width + (shotj + 1)) == 8 and *(pole + shoti * width + (shotj + 2)) == 5) or (*(pole + shoti * width + (shotj + 1)) == 8 and *(pole + shoti * width + (shotj + 2)) == 8))
+        {//если среди оставшихся клеток корабля есть живые
+            *(pole + shoti * width + shotj) = 5;
+            *(pole_out + shoti * width + shotj) = 'X';
+            // return 2;
+        }
+
+        //выстрел произведён в последнюю палубу горизонтально стоящего трёхпалубного
+        if (*(pole + shoti * width + (shotj - 1)) == 5 and *(pole + shoti * width + (shotj - 2)) == 5)
+        {//если обе оставшиеся клетки раненные                
+            *(pole + shoti * width + shotj) = 4;
+            *(pole + shoti * width + (shotj - 1)) = 4;
+            *(pole + shoti * width + (shotj - 2)) = 4;
+            *(pole_out + shoti * width + shotj) = 'X';
+            zvezdi(pole, height, width, pole_out);
+            //  return 1;
+            int num = isVictory(pole, height, width);
+            if (num == 0)
+            {
+                //cout << "\nGAME OVER\n";
+                return 0;
+            }
+        }
+        if ((*(pole + shoti * width + (shotj - 1)) == 5 and *(pole + shoti * width + (shotj - 2)) == 8)
+            or (*(pole + shoti * width + (shotj - 1)) == 8 and *(pole + shoti * width + (shotj - 2)) == 5)
+            or (*(pole + shoti * width + (shotj - 1)) == 8 and *(pole + shoti * width + (shotj - 2)) == 8))
+        {//если среди оставшихся клеток корабля есть живые
+            *(pole + shoti * width + shotj) = 5;
+            *(pole_out + shoti * width + shotj) = 'X';
+            // return 2;
+        }
+
+
+
+        //выстрел произвёден в нижнюю палубу вертикально стоящего трёхпалубного
+        if (*(pole + (shoti - 1) * width + shotj) == 5 and *(pole + (shoti - 2) * width + shotj) == 5)
+        {//если обе оставшиеся клетки раненные
+            *(pole + shoti * width + shotj) = 4;
+            *(pole + (shoti - 1) * width + shotj) = 4;
+            *(pole + (shoti - 2) * width + shotj) = 4;
+            *(pole_out + shoti * width + shotj) = 'X';
+            zvezdi(pole, height, width, pole_out);
+            // return 1;
+            int num = isVictory(pole, height, width);
+            if (num == 0)
+            {
+                //cout << "\nGAME OVER\n";
+                return 0;
+            }
+        }
+        if ((*(pole + (shoti - 1) * width + shotj) == 5 and *(pole + (shoti - 2) * width + shotj) == 8)
+            or (*(pole + (shoti - 1) * width + shotj) == 8 and *(pole + (shoti - 2) * width + shotj) == 5)
+            or (*(pole + (shoti - 1) * width + shotj) == 8 and *(pole + (shoti - 2) * width + shotj) == 8))
+        {//если среди оставшихся клеток корабля есть живые
+            *(pole + shoti * width + shotj) = 5;
+            *(pole_out + shoti * width + shotj) = 'X';
+            //  return 2;
+        }
+
+        //выстрел произведён в верхнюю палубу вертикально стоящего трёхпалубного
+        if (*(pole + (shoti + 1) * width + shotj) == 5 and *(pole + (shoti + 2) * width + shotj) == 5)
+        {//если обе оставшиеся клетки раненные
+            *(pole + shoti * width + shotj) = 4;
+            *(pole + (shoti + 1) * width + shotj) = 4;
+            *(pole + (shoti + 2) * width + shotj) = 4;
+            *(pole_out + shoti * width + shotj) = 'X';
+            zvezdi(pole, height, width, pole_out);
+            // return 1;
+            int num = isVictory(pole, height, width);
+            if (num == 0)
+            {
+                //cout << "\nGAME OVER\n";
+                return 0;
+            }
+        }
+        if ((*(pole + (shoti + 1) * width + shotj) == 5 and *(pole + (shoti + 2) * width + shotj) == 8)
+            or (*(pole + (shoti + 1) * width + shotj) == 8 and *(pole + (shoti + 2) * width + shotj) == 5)
+            or (*(pole + (shoti + 1) * width + shotj) == 8 and *(pole + (shoti + 2) * width + shotj) == 8))
+        {//если среди оставшихся клеток корабля есть живые
+            *(pole + shoti * width + shotj) = 5;
+            *(pole_out + shoti * width + shotj) = 'X';
+            // return 2;
+        }
+
+        //выстрел произведён в центральную палубу трёхпалубного
+        if (*(pole + shoti * width + (shotj + 1)) == 5 and *(pole + shoti * width + (shotj - 1)) == 5
+            or
+            *(pole + (shoti + 1) * width + shotj) == 5 and *(pole + (shoti - 1) * width + shotj) == 5)
+        {//если обе оставшиеся клетки раненные
+
+            if (*(pole + shoti * width + (shotj + 1)) == 5 and *(pole + shoti * width + (shotj - 1)) == 5) //трёхпалубный расположен горизонтально
+            {
+                *(pole + shoti * width + shotj) = 4;
+                *(pole + shoti * width + (shotj - 1)) = 4;
+                *(pole + shoti * width + (shotj + 1)) = 4;
+                *(pole_out + shoti * width + shotj) = 'X';
+                zvezdi(pole, height, width, pole_out);
+                // return 1;
+                int num = isVictory(pole, height, width);
+                if (num == 0)
+                {
+                    //cout << "\nGAME OVER\n";
+                    return 0;
+                }
+            }
+            if (*(pole + (shoti + 1) * width + shotj) == 5 and *(pole + (shoti - 1) * width + shotj) == 5) //трёхпалубный расположен вертикально
+            {
+                *(pole + shoti * width + shotj) = 4;
+                *(pole + (shoti - 1) * width + shotj) = 4;
+                *(pole + (shoti + 1) * width + shotj) = 4;
+                *(pole_out + shoti * width + shotj) = 'X';
+                zvezdi(pole, height, width, pole_out);
+                // return 1;
+                int num = isVictory(pole, height, width);
+                if (num == 0)
+                {
+                    //cout << "\nGAME OVER\n";
+                    return 0;
+                }
+            }
+        }
+        /*Возможно можно убрать и добавить объявление клетки попадания раненной в начале*/
+        if (*(pole + shoti * width + (shotj + 1)) == 8 and *(pole + shoti * width + (shotj - 1)) == 8
+            or
+            *(pole + (shoti + 1) * width + shotj) == 8 and *(pole + (shoti - 1) * width + shotj) == 8
+            or
+            *(pole + shoti * width + (shotj + 1)) == 5 and *(pole + shoti * width + (shotj - 1)) == 8
+            or
+            *(pole + shoti * width + (shotj + 1)) == 8 and *(pole + shoti * width + (shotj - 1)) == 5
+            or
+            *(pole + (shoti + 1) * width + shotj) == 8 and *(pole + (shoti - 1) * width + shotj) == 5
+            or
+            *(pole + (shoti + 1) * width + shotj) == 5 and *(pole + (shoti - 1) * width + shotj) == 8)
+        {
+            *(pole + shoti * width + shotj) = 5;
+            *(pole_out + shoti * width + shotj) = 'X';
+            // return 2;
+        }
+
+    }
+
+    if (*(pole + shoti * width + shotj) == 9)
+    {//если попадание совершено в четырёхпалубный
+        int count = 0;
+        *(pole + shoti * width + shotj) = 1;
+        *(pole_out + shoti * width + shotj) = 'X';
+        for (int i = 0; i < 10; i++)
+        {//цикл проверки на существование на поле живых клеток четырёхпалубного
+            for (int j = 0; j < 10; j++)
+            {
+                if (*(pole + i * width + j) == 9)
+                {
+                    count++;
+                }
+            }
+        }
+        if (count == 0)
+        {//если живых клеток четырёхпалубного не найдено, 
+         //все раненные клетки четырёхпалубного объявляются убитыми
+            //cout << "Четырёхпалубный убит" << endl;
+            for (int i = 0; i < 10; i++)
+            {
+                for (int j = 0; j < 10; j++)
+                {
+                    if (*(pole + i * width + j) == 1)
+                    {
+                        *(pole + i * width + j) = 4;
+                    }
+
+                }
+            }
+            zvezdi(pole, height, width, pole_out);
+            // return 1;
+            int num = isVictory(pole, height, width);
+            if (num == 0)
+            {
+                //cout << "\nGAME OVER\n";
+                return 0;
+            }
+        }
+
+    }
+
+    //CTRL + K, CTRL + C - закомментировать
+    //CTRL + K, CTRL + U - раскомментировать
+}
+
+int main()
+{
+    SetConsoleCP(1251);
+    SetConsoleOutputCP(1251);
+    int WhoTurns = 1;//0 - комп 1 - игрок
+    setlocale(LC_ALL, "Russian");
+    srand(time(NULL));
+    const int h = 10, w = 10;
+    int pole[h][w];
+    int polep[h][w];
+    int pole2[h][w];
+    string bukvs = "АБВГДЕЖЗИК";
+    //int pole1[h][w];
+    int choice = menu();
+
+    if (choice == 0)
+    {//выход
+        cout << "Закрытие...\n";
+        system("pause");
+        exit(777);
+    }
+
+    for (int i = 0; i < 10; i++)
+    {
+        for (int j = 0; j < 10; j++)
+        {
+            pole[i][j] = 0;
+            pole2[i][j] = 0;
+            polep[i][j] = 0;
+        }
+    }
+    set_ships(&pole[0][0], h, w); //автоустановка кораблей на поле противника
+    set_ships(&pole2[0][0], h, w); //автоустановка кораблей на поле второго компа
+    clear3(&pole[0][0], h, w); //очистка полей
+    clear3(&pole2[0][0], h, w);
+    char pole_enemy[h][w];
+    char pole_enemy2[h][w];
+    char pole_player[h][w];
+    for (int i = 0; i < 10; i++)
+    {//заполнение чаровых массивов прочерками
+        for (int j = 0; j < 10; j++)
+        {
+            pole_enemy[i][j] = '-';
+            pole_enemy2[i][j] = '-';
+            pole_player[i][j] = '-';
+        }
+    }
+
+    system("cls");
+    int count_comp = 10, count_player = 10, count_comp1 = 10, count_comp2 = 10; //счётчики живых кораблей
+    int shipCount = 0; //счётчик кораблей при ручной расстановке
+    int shoti_comp; //координата выстрела компа по вертикали
+    int shotj_comp; //координата выстрела компа по горизонтали
+    int status = 0; //стадия ведения боя компом
+
+    if (choice == 1)  //ручная расстановка кораблей
+    {
+        int ship = 0; //тип корабля (0 - четырёхпалубный, 1 - трёхпалубный, 2 - двухпалубный, 3 - однопалубный)
+        while (true)
+        {
+            cout_pole_player(&pole_player[0][0], h, w);
+            //cout_pole(&polep[0][0], h, w);
+            if (ship == 0)
+            {//установка четырёхпалубного
+                cout << "Введите позицию для установки первой палубы четырёхпалубного\nСначала координата по горизонтали, затем по вертикали\nПосле этого вам будет предложено выбрать направление для его установки\n >>>";
+                int posi;
+                int posj;
+                char posj_char;
+                cin >> posj_char;
+                int cc = 0;
+                for (int i = 0; i < 10; i++)
+                {//проверка на корректность введённых данных
+                    if (posj_char == bukvs[i])
+                    {
+                        posj = i;
+                        cc++;
+                    }
+                }
+                if (cc == 0)
+                {
+
+                    cout << "Некорректный ввод!";
+                    Sleep(1000);
+                    system("cls");
+                    continue;
+
+                }
+
+                //проверка на корректность введённых данных
+                string posi_string;
+                cin >> posi_string;
+                string chk = "123456789";
+                int c = 0;
+                for (int i = 0; i < 10; i++)
+                {
+                    if (posi_string[0] == chk[i])
+                    {
+                        c++;
+                    }
+                }
+                if (c == 0)
+                {
+                    if (posi_string != "10")
+                    {
+                        cout << "Некорректный ввод!";
+                        Sleep(1000);
+                        system("cls");
+                        continue;
+                    }
+                }
+                posi = stoi(posi_string);
+                posi--;
+
+                if (posi < 0 or posi > 9)
+                {
+                    cout << "Некорректный ввод!";
+                    Sleep(1000);
+                    system("cls");
+                    cout_polya_PK(&pole_enemy[0][0], &pole_player[0][0], h, w, count_comp, count_player);
+                    continue;
+                }
+                //конец проверки на корректность
+
+                if (polep[posi][posj] != 3 and polep[posi][posj] < 5)
+                {
+                    cout << "Введите направление для установки четырёхпалубного:\n1 - вправо\n2 - влево\n3 - вверх\n4 - вниз\n>>>";
+                    int direct;
+                    cin >> direct;
+
+                    if (direct == 1 and posj + 3 <= 9)
+                    {//вправо
+                        for (int i = 0; i < 4; i++)
+                        {
+                            polep[posi][posj] = 9;
+                            pole_player[posi][posj] = '#';
+                            posj++;
+                        }
+                    }
+                    else if (direct == 1 and posj + 3 > 9)
+                    {
+                        system("cls");
+                        cout << "Установка корабля в заданном направлении невозможна\n";
+                        continue;
+                    }
+
+                    if (direct == 2 and posj - 3 >= 0)
+                    {//влево
+                        for (int i = 0; i < 4; i++)
+                        {
+                            polep[posi][posj] = 9;
+                            pole_player[posi][posj] = '#';
+                            posj--;
+                        }
+                    }
+                    else if (direct == 2 and posj - 3 < 0)
+                    {
+                        system("cls");
+                        cout << "Установка корабля в заданном направлении невозможна\n";
+                        continue;
+                    }
+
+                    if (direct == 3 and posi - 3 >= 0)
+                    {//вверх
+                        for (int i = 0; i < 4; i++)
+                        {
+                            polep[posi][posj] = 9;
+                            pole_player[posi][posj] = '#';
+                            posi--;
+                        }
+                    }
+                    else if (direct == 3 and posi - 3 < 0)
+                    {
+                        system("cls");
+                        cout << "Установка корабля в заданном направлении невозможна\n";
+                        continue;
+                    }
+
+                    if (direct == 4 and posi + 3 <= 9)
+                    {//вниз
+                        for (int i = 0; i < 4; i++)
+                        {
+                            polep[posi][posj] = 9;
+                            pole_player[posi][posj] = '#';
+                            posi++;
+                        }
+                    }
+                    else if (direct == 4 and posi + 3 > 9)
+                    {
+                        system("cls");
+                        cout << "Установка корабля в заданном направлении невозможна\n";
+                        continue;
+                    }
+
+                    if (direct < 1 or direct > 4)
+                    {
+                        system("cls");
+                        cout << "Некорректное направление\n";
+                        continue;
+                    }
+                    system("cls");
+                    ship++;
+                    troiki(&polep[0][0], h, w);
+                    continue;
+
+                }
+                else
+                {
+                    system("cls");
+                    cout << "Установка корабля на заданных координатах невозможна\n";
+                    continue;
+                }
+
+            }
+
+            if (ship == 1)
+            {//установка трёхпалубных
+                cout << "Введите позицию для установки первой палубы " << shipCount + 1 << "-го по счёту трёхпалубного\nСначала координата по горизонтали, затем по вертикали\nПосле этого вам будет предложено выбрать направление для его установки\n>>>";
+                int posi;
+                int posj;
+                char posj_char;
+                cin >> posj_char;
+                int cc = 0;
+                for (int i = 0; i < 10; i++)
+                {
+                    if (posj_char == bukvs[i])
+                    {
+                        posj = i;
+                        cc++;
+                    }
+                }
+                if (cc == 0)
+                {
+
+                    cout << "Некорректный ввод!";
+                    Sleep(1000);
+                    system("cls");
+                    continue;
+
+                }
+                //проверка на корректность введённых данных
+                string posi_string;
+                cin >> posi_string;
+                string chk = "123456789";
+                int c = 0;
+                for (int i = 0; i < 10; i++)
+                {
+                    if (posi_string[0] == chk[i])
+                    {
+                        c++;
+                    }
+                }
+                if (c == 0)
+                {
+                    if (posi_string != "10")
+                    {
+                        cout << "Некорректный ввод!";
+                        Sleep(1000);
+                        system("cls");
+                        continue;
+                    }
+                }
+                posi = stoi(posi_string);
+                posi--;
+
+                if (posi < 0 or posi > 9)
+                {
+                    cout << "Некорректный ввод!";
+                    Sleep(1000);
+                    system("cls");
+                    cout_polya_PK(&pole_enemy[0][0], &pole_player[0][0], h, w, count_comp, count_player);
+                    continue;
+                }
+                //конец проверки на корректность
+
+                if (polep[posi][posj] != 3 and polep[posi][posj] < 5)
+                {
+                    cout << "Введите направление для установки трёхпалубного:\n1 - вправо\n2 - влево\n3 - вверх\n4 - вниз\n>>>";
+                    int direct;
+                    cin >> direct;
+
+                    if (direct == 1 and posj + 2 <= 9 and polep[posi][posj + 1] < 5 and polep[posi][posj + 2] < 5 and polep[posi][posj + 1] != 3 and polep[posi][posj + 2] != 3)
+                    {//вправо
+                        for (int i = 0; i < 3; i++)
+                        {
+                            polep[posi][posj] = 8;
+                            pole_player[posi][posj] = '#';
+                            posj++;
+                        }
+                    }
+                    else if ((direct == 1 and posj + 2 > 9) or (direct == 1 and polep[posi][posj + 2] > 5) or (direct == 1 and polep[posi][posj + 2] == 3))
+                    {
+                        system("cls");
+                        cout << "Установка корабля в заданном направлении невозможна\n";
+
+                        continue;
+                    }
+
+                    if (direct == 2 and posj - 2 >= 0 and polep[posi][posj - 1] < 5 and polep[posi][posj - 2] < 5 and polep[posi][posj - 1] != 3 and polep[posi][posj - 2] != 3)
+                    {//влево
+                        for (int i = 0; i < 3; i++)
+                        {
+                            polep[posi][posj] = 8;
+                            pole_player[posi][posj] = '#';
+                            posj--;
+                        }
+                    }
+                    else if ((direct == 2 and posj - 2 < 0) or (direct == 2 and polep[posi][posj - 2] > 5) or (direct == 2 and polep[posi][posj - 2] == 3))
+                    {
+                        system("cls");
+                        cout << "Установка корабля в заданном направлении невозможна\n";
+
+                        continue;
+                    }
+
+                    if (direct == 3 and posi - 2 >= 0 and polep[posi - 1][posj] < 5 and polep[posi - 2][posj] < 5 and polep[posi - 1][posj] != 3 and polep[posi - 2][posj] != 3)
+                    {//вверх
+                        for (int i = 0; i < 3; i++)
+                        {
+                            polep[posi][posj] = 8;
+                            pole_player[posi][posj] = '#';
+                            posi--;
+                        }
+                    }
+                    else if ((direct == 3 and posi - 2 < 0) or (direct == 3 and polep[posi - 2][posj] > 5) or (direct == 3 and polep[posi - 2][posj] == 3))
+                    {
+                        system("cls");
+                        cout << "Установка корабля в заданном направлении невозможна\n";
+                        continue;
+                    }
+
+                    if (direct == 4 and posi + 2 <= 9 and polep[posi + 1][posj] < 5 and polep[posi + 2][posj] < 5 and polep[posi + 1][posj] != 3 and polep[posi + 2][posj] != 3)
+                    {//вниз
+                        for (int i = 0; i < 3; i++)
+                        {
+                            polep[posi][posj] = 8;
+                            pole_player[posi][posj] = '#';
+                            posi++;
+                        }
+                    }
+                    else if ((direct == 4 and posi + 2 > 9) or (direct == 4 and polep[posi + 2][posj] > 5) or (direct == 4 and polep[posi + 2][posj] == 3))
+                    {
+                        system("cls");
+                        cout << "Установка корабля в заданном направлении невозможна\n";
+
+                        continue;
+                    }
+                    if (direct < 1 or direct > 4)
+                    {
+                        system("cls");
+                        cout << "Некорректное направление\n";
+                        continue;
+                    }
+
+                    //cout_pole_player(&pole_player[0][0], h, w);
+
+                    shipCount++;
+                    if (shipCount == 2)
+                    {//если установлено достаточное количество кораблей
+                        system("cls");
+                        ship++;
+                        troiki(&polep[0][0], h, w);
+                        shipCount = 0;
+                        continue;
+
+                    }
+                    system("cls");
+                    troiki(&polep[0][0], h, w);
+                    continue;
+                }
+                else
+                {
+                    system("cls");
+                    cout << "Установка корабля на заданных координатах невозможна\n";
+                    continue;
+                }
+
+            }
+
+            if (ship == 2)
+            {//установка двухпалубных
+                cout << "Введите позицию для установки первой палубы " << shipCount + 1 << "-го по счёту двухпалубного\nСначала координата по горизонтали, затем по вертикали\nПосле этого вам будет предложено выбрать направление для его установки\n>>>";
+                int posi;
+                int posj;
+                char posj_char;
+                cin >> posj_char;
+                int cc = 0;
+                for (int i = 0; i < 10; i++)
+                {
+                    if (posj_char == bukvs[i])
+                    {
+                        posj = i;
+                        cc++;
+                    }
+                }
+                if (cc == 0)
+                {
+
+                    cout << "Некорректный ввод!";
+                    Sleep(1000);
+                    system("cls");
+                    continue;
+
+                }
+                //проверка на корректность введённых данных
+                string posi_string;
+                cin >> posi_string;
+                string chk = "123456789";
+                int c = 0;
+                for (int i = 0; i < 10; i++)
+                {
+                    if (posi_string[0] == chk[i])
+                    {
+                        c++;
+                    }
+                }
+                if (c == 0)
+                {
+                    if (posi_string != "10")
+                    {
+                        cout << "Некорректный ввод!";
+                        Sleep(1000);
+                        system("cls");
+                        continue;
+                    }
+                }
+                posi = stoi(posi_string);
+                posi--;
+
+                if (posi < 0 or posi > 9)
+                {
+                    cout << "Некорректный ввод!";
+                    Sleep(1000);
+                    system("cls");
+                    cout_polya_PK(&pole_enemy[0][0], &pole_player[0][0], h, w, count_comp, count_player);
+                    continue;
+                }
+                //конец проверки
+                if (polep[posi][posj] != 3 and polep[posi][posj] < 5)
+                {
+                    cout << "Введите направление для установки двухпалубного:\n1 - вправо\n2 - влево\n3 - вверх\n4 - вниз\n>>>";
+                    int direct;
+                    cin >> direct;
+
+                    if (direct == 1 and posj + 1 <= 9 and polep[posi][posj + 1] < 5 and polep[posi][posj + 1] != 3)
+                    {//вправо
+                        for (int i = 0; i < 2; i++)
+                        {
+                            polep[posi][posj] = 7;
+                            pole_player[posi][posj] = '#';
+                            posj++;
+                        }
+                    }
+                    else if ((direct == 1 and posj + 1 > 9) or (direct == 1 and polep[posi][posj + 1] > 5) or (direct == 1 and polep[posi][posj + 1] == 3))
+                    {
+                        system("cls");
+                        cout << "Установка корабля в заданном направлении невозможна\n";
+                        continue;
+                    }
+
+                    if (direct == 2 and posj - 1 >= 0 and polep[posi][posj - 1] < 5 and polep[posi][posj - 1] != 3)
+                    {//влево
+                        for (int i = 0; i < 2; i++)
+                        {
+                            polep[posi][posj] = 7;
+                            pole_player[posi][posj] = '#';
+                            posj--;
+                        }
+                    }
+                    else if ((direct == 2 and posj - 1 < 0) or (direct == 2 and polep[posi][posj - 1] > 5) or (direct == 2 and polep[posi][posj - 1] == 3))
+                    {
+                        system("cls");
+                        cout << "Установка корабля в заданном направлении невозможна\n";
+                        continue;
+                    }
+
+                    if (direct == 3 and posi - 1 >= 0 and polep[posi - 1][posj] < 5 and polep[posi - 1][posj] != 3)
+                    {//вверх
+                        for (int i = 0; i < 2; i++)
+                        {
+                            polep[posi][posj] = 8;
+                            pole_player[posi][posj] = '#';
+                            posi--;
+                        }
+                    }
+                    else if ((direct == 3 and posi - 1 < 0) or (direct == 3 and polep[posi - 1][posj] > 5) or (direct == 3 and polep[posi - 1][posj] == 3))
+                    {
+                        system("cls");
+                        cout << "Установка корабля в заданном направлении невозможна\n";
+                        continue;
+                    }
+
+                    if (direct == 4 and posi + 1 <= 9 and polep[posi + 1][posj] < 5 and polep[posi + 1][posj] != 3)
+                    {//вниз
+                        for (int i = 0; i < 2; i++)
+                        {
+                            polep[posi][posj] = 7;
+                            pole_player[posi][posj] = '#';
+                            posi++;
+                        }
+                    }
+                    else if ((direct == 4 and posi + 1 > 9) or (direct == 4 and polep[posi + 1][posj] > 5) or (direct == 4 and polep[posi + 1][posj] == 3))
+                    {
+                        system("cls");
+                        cout << "Установка корабля в заданном направлении невозможна\n";
+                        continue;
+                    }
+
+                    if (direct < 1 or direct > 4)
+                    {
+                        system("cls");
+                        cout << "Некорректное направление\n";
+                        continue;
+                    }
+                    //cout_pole_player(&pole_player[0][0], h, w);
+
+                    shipCount++;
+                    if (shipCount == 3)
+                    {//если установлено достаточное количество кораблей
+                        system("cls");
+                        ship++;
+                        shipCount = 0;
+                        troiki(&polep[0][0], h, w);
+                        continue;
+
+                    }
+
+                    system("cls");
+                    troiki(&polep[0][0], h, w);
+                    continue;
+                }
+                else
+                {
+                    system("cls");
+                    cout << "Установка корабля на заданных координатах невозможна\n";
+                    continue;
+                }
+
+            }
+
+            if (ship == 3)
+            {
+                cout << "Введите координаты установки " << shipCount + 1 << "-го по счёту однопалубного\nСначала по горизонтали, затем по вертикали\n>>>";
+                int posi;
+                int posj;
+                char posj_char;
+                cin >> posj_char;
+                int cc = 0;
+                for (int i = 0; i < 10; i++)
+                {
+                    if (posj_char == bukvs[i])
+                    {
+                        posj = i;
+                        cc++;
+                    }
+                }
+                if (cc == 0)
+                {
+
+                    cout << "Некорректный ввод!";
+                    Sleep(1000);
+                    system("cls");
+                    continue;
+
+                }
+                //проверка на корректность введённых данных
+                string posi_string;
+                cin >> posi_string;
+                string chk = "123456789";
+                int c = 0;
+                for (int i = 0; i < 10; i++)
+                {
+                    if (posi_string[0] == chk[i])
+                    {
+                        c++;
+                    }
+                }
+                if (c == 0)
+                {
+                    if (posi_string != "10")
+                    {
+                        cout << "Некорректный ввод!";
+                        Sleep(1000);
+                        system("cls");
+                        continue;
+                    }
+                }
+                posi = stoi(posi_string);
+                posi--;
+                //конец проверки на корректность
+                if (posi < 0 or posi > 9)
+                {
+                    cout << "Некорректный ввод!";
+                    Sleep(1000);
+                    system("cls");
+                    cout_polya_PK(&pole_enemy[0][0], &pole_player[0][0], h, w, count_comp, count_player);
+                    continue;
+                }
+                if (polep[posi][posj] != 3 and polep[posi][posj] < 5 and polep[posi][posj] == 0)
+                {
+                    polep[posi][posj] = 6;
+                    pole_player[posi][posj] = '#';
+                    system("cls");
+                    shipCount++;
+                    troiki(&polep[0][0], h, w);
+                    if (shipCount == 4)
+                    {//если установлено достаточное количество кораблей
+                        system("cls");
+                        clear3(&polep[0][0], h, w);
+                        cout_polya_PK(&pole_enemy[0][0], &pole_player[0][0], h, w, count_comp, count_player);
+                        break;
+                    }
+                    continue;
+                }
+                else if (polep[posi][posj] == 3 or polep[posi][posj] > 5)
+                {
+                    system("cls");
+                    cout << "Установка корабля на заданных координатах невозможна\n";
+                    continue;
+                }
+
+            }
+
+        }
+
+    }
+
+    else if (choice == 2) { //автоматическая расстановка кораблей
+        set_ships(&polep[0][0], h, w);
+        for (int i = 0; i < 10; i++) {
+            for (int j = 0; j < 10; j++) {
+                if (polep[i][j] > 5) {
+                    pole_player[i][j] = '#'; //перенос данных о кораблях из интового поля в чаровое
+                }
+            }
+        }
+        clear3(&polep[0][0], h, w);
+        cout_polya_PK(&pole_enemy[0][0], &pole_player[0][0], h, w, count_comp, count_player);
+    }
+
+    else if (choice == 555) //загрузка сохранения
+    {
+        string temp;
+        char tempchar[20];
+        ifstream F4;
+        F4.open("game.txt");
+        for (int i = 0; i < 10; i++)
+        {//загрузка интового массива поля пользователя
+            for (int j = 0; j < 10; j++)
+            {
+                getline(F4, temp); //считывает строку из файла
+                polep[i][j] = stoi(temp);
+            }
+        }
+        for (int i = 0; i < 10; i++)
+        {//загрузка интового массива поля компа
+            for (int j = 0; j < 10; j++)
+            {
+                getline(F4, temp); //считывает строку из файла
+                pole[i][j] = stoi(temp);
+            }
+        }
+        for (int i = 0; i < 10; i++)
+        {//загрузка чарового массива пользователя
+            for (int j = 0; j < 10; j++)
+            {
+                getline(F4, temp); //считывает строку из файла
+                strcpy(tempchar, temp.c_str());
+                pole_player[i][j] = tempchar[0];
+            }
+        }
+        for (int i = 0; i < 10; i++)
+        {//загрузка чарового массива компа
+            for (int j = 0; j < 10; j++)
+            {
+                getline(F4, temp); //считывает строку из файла
+                strcpy(tempchar, temp.c_str());
+                pole_enemy[i][j] = tempchar[0];
+            }
+        }
+        getline(F4, temp);
+        shoti_comp = stoi(temp);//загрузка координаты по высоте последнего выстрела компа
+        getline(F4, temp);
+        shotj_comp = stoi(temp);//загрузка координаты по ширине последнего выстрела компа
+        getline(F4, temp);
+        status = stoi(temp);//загрузка стадии ведения боя компом
+        getline(F4, temp);
+        count_player = stoi(temp);//загрузка счётчика кораблей игрока
+        getline(F4, temp);
+        count_comp = stoi(temp);//загрузка счётчика кораблей компа
+
+        F4.close();
+        system("cls");
+        cout << "Игра успешно загружена\n";
+        cout_polya_PK(&pole_enemy[0][0], &pole_player[0][0], h, w, count_comp, count_player);
+
+    }
+
+    if (choice == 1 or choice == 2 or choice == 555) //бой игрока против компа
+    {
+
+        int num; //переменная для проверки на победу
+
+        while (true)
+        {
+            if (WhoTurns == 1) //игрок делает выстрел
+            {
+                while (true)
+                {
+                    cout << endl;
+                    char shotj_string = ' ';
+                    int shoti;
+                    int shotj;
+
+                    ifstream check("game.txt");//проверка на существование файла сохранения
+                    if (check.is_open())
+                    {
+                        cout << "9 - загрузить игру\n";
+                    }
+                    check.close();
+
+                    cout << "7 - сохранить игру и выйти в меню\n";
+                    cout << "5 - сохранить игру и продолжить\n";
+                    cout << "3 - выйти в меню без сохранения\n";
+                    cout << "Координата по горизонтали и координата по вертикали(через пробел)\n >>> ";
+                    cin >> shotj_string;
+                    int cc = 0;
+                    for (int i = 0; i < 10; i++)
+                    {
+                        if (shotj_string == bukvs[i])
+                        {
+                            shotj = i;
+                            cc++;
+                        }
+                    }
+                    if (cc == 0)
+                    {
+                        if (shotj_string == '9')
+                            shotj = 999;
+                        else if (shotj_string == '7')
+                            shotj = 777;
+                        else if (shotj_string == '5')
+                            shotj = 555;
+                        else if (shotj_string == '3')
+                            shotj = 333;
+                        else
+                        {
+                            cout << "Некорректный ввод!";
+                            Sleep(1000);
+                            system("cls");
+
+                            cout << endl;
+                            cout_polya_PK(&pole_enemy[0][0], &pole_player[0][0], h, w, count_comp, count_player);
+                            continue;
+                        }
+                    }
+
+
+                    if (shotj == 333)
+                    {
+                        system("cls");
+                        cout << "Выход в меню...";
+                        Sleep(1000);
+                        main();
+                    }
+                    //Выход
+                    if (shotj == 555) {
+                        ofstream F3;
+                        F3.open("game.txt");
+                        for (int i = 0; i < 10; i++)
+                        {//сохранение интового поля пользователя
+                            for (int j = 0; j < 10; j++)
+                                F3 << polep[i][j] << endl;
+                        }
+                        for (int i = 0; i < 10; i++)
+                        {//сохранение интового поля компа
+                            for (int j = 0; j < 10; j++)
+                                F3 << pole[i][j] << endl;
+                        }
+                        for (int i = 0; i < 10; i++)
+                        {//сохранение чарового поля пользователя
+                            for (int j = 0; j < 10; j++)
+                                F3 << pole_player[i][j] << endl;
+                        }
+                        for (int i = 0; i < 10; i++)
+                        {//сохранение чарового поля компа
+                            for (int j = 0; j < 10; j++)
+                                F3 << pole_enemy[i][j] << endl;
+                        }
+                        F3 << shoti_comp << endl;//сохранение координат выстрела компа
+                        F3 << shotj_comp << endl;
+                        F3 << status << endl;//сохранение стадии ведения боя компом
+                        F3 << count_player << endl;//сохранение счётчиков
+                        F3 << count_comp << endl;
+
+                        F3.close();
+                        system("cls");
+                        cout << "Игра успешно сохранена\n";
+                        Sleep(1000);
+                        system("cls");
+                        cout_polya_PK(&pole_enemy[0][0], &pole_player[0][0], h, w, count_comp, count_player);
+                        continue;
+                        //return 0;
+                    }
+                    //Сохранение + продолжить
+                    if (shotj == 777)
+                    {
+                        ofstream F3;
+                        F3.open("game.txt");
+                        for (int i = 0; i < 10; i++)
+                        {//сохранение интового поля пользователя
+                            for (int j = 0; j < 10; j++)
+                                F3 << polep[i][j] << endl;
+                        }
+                        for (int i = 0; i < 10; i++)
+                        {//сохранение интового поля компа
+                            for (int j = 0; j < 10; j++)
+                                F3 << pole[i][j] << endl;
+                        }
+                        for (int i = 0; i < 10; i++)
+                        {//сохранение чарового поля пользователя
+                            for (int j = 0; j < 10; j++)
+                                F3 << pole_player[i][j] << endl;
+                        }
+                        for (int i = 0; i < 10; i++)
+                        {//сохранение чарового поля компа
+                            for (int j = 0; j < 10; j++)
+                                F3 << pole_enemy[i][j] << endl;
+                        }
+                        F3 << shoti_comp << endl;//сохранение координат выстрела компа
+                        F3 << shotj_comp << endl;
+                        F3 << status << endl;//сохранение стадии ведения боя компом
+                        F3 << count_player << endl;//сохранение счётчиков
+                        F3 << count_comp << endl;
+
+                        F3.close();
+                        system("cls");
+                        cout << "Игра успешно сохранена\n";
+                        Sleep(1000);
+                        system("cls");
+                        main();
+                    }
+                    //Сохранение + выход
+                    if (shotj == 999)
+                    {
+                        ifstream check("game.txt");
+                        if (check.is_open())
+                        {
+                            check.close();
+
+                            string temp;
+                            char tempchar[20];
+                            ifstream F4;
+                            F4.open("game.txt");
+                            for (int i = 0; i < 10; i++)
+                            {//загрузка интового массива поля пользователя
+                                for (int j = 0; j < 10; j++)
+                                {
+                                    getline(F4, temp); //считывает строку из файла
+                                    polep[i][j] = stoi(temp);
+                                }
+                            }
+                            for (int i = 0; i < 10; i++)
+                            {//загрузка интового массива поля компа
+                                for (int j = 0; j < 10; j++)
+                                {
+                                    getline(F4, temp); //считывает строку из файла
+                                    pole[i][j] = stoi(temp);
+                                }
+                            }
+                            for (int i = 0; i < 10; i++)
+                            {//загрузка чарового массива пользователя
+                                for (int j = 0; j < 10; j++)
+                                {
+                                    getline(F4, temp); //считывает строку из файла
+                                    strcpy(tempchar, temp.c_str());
+                                    pole_player[i][j] = tempchar[0];
+                                }
+                            }
+                            for (int i = 0; i < 10; i++)
+                            {//загрузка чарового массива компа
+                                for (int j = 0; j < 10; j++)
+                                {
+                                    getline(F4, temp); //считывает строку из файла
+                                    strcpy(tempchar, temp.c_str());
+                                    pole_enemy[i][j] = tempchar[0];
+                                }
+                            }
+                            getline(F4, temp);
+                            shoti_comp = stoi(temp);//загрузка координаты по высоте последнего выстрела компа
+                            getline(F4, temp);
+                            shotj_comp = stoi(temp);//загрузка координаты по ширине последнего выстрела компа
+                            getline(F4, temp);
+                            status = stoi(temp);//загрузка стадии ведения боя компом
+                            getline(F4, temp);
+                            count_player = stoi(temp);//загрузка счётчика кораблей игрока
+                            getline(F4, temp);
+                            count_comp = stoi(temp);//загрузка счётчика кораблей компа
+
+                            F4.close();
+                            system("cls");
+                            cout << "Игра успешно загружена\n";
+                            cout_polya_PK(&pole_enemy[0][0], &pole_player[0][0], h, w, count_comp, count_player);
+                            continue;
+                        }
+                        else
+                        {
+                            cout << "Некорректный ввод!";
+                            Sleep(1000);
+                            system("cls");
+                            cout_polya_PK(&pole_enemy[0][0], &pole_player[0][0], h, w, count_comp, count_player);
+                            continue;
+                        }
+                        check.close();
+
+                    }
+                    //Загрузка
+
+                    if ((shotj < 0) or (shotj > 10 and shotj != 333) and (shotj > 10 and shotj != 555) and (shotj > 10 and shotj != 777) and (shotj > 10 and shotj != 999))
+                    {
+                        cout << "Некорректный ввод!";
+                        Sleep(1000);
+                        system("cls");
+                        cout_polya_PK(&pole_enemy[0][0], &pole_player[0][0], h, w, count_comp, count_player);
+                        continue;
+                    }
+                    //shotj--;
+
+                    //проверка на корректность введённых данных
+                    string shoti_string;
+                    cin >> shoti_string;
+                    string chk = "123456789";
+                    int c = 0;
+                    for (int i = 0; i < 10; i++)
+                    {
+                        if (shoti_string[0] == chk[i])
+                        {
+                            c++;
+                        }
+                    }
+                    if (c == 0)
+                    {
+                        if (shoti_string != "10")
+                        {
+                            cout << "Некорректный ввод!";
+                            Sleep(1000);
+                            system("cls");
+                            cout_polya_PK(&pole_enemy[0][0], &pole_player[0][0], h, w, count_comp, count_player);
+                            continue;
+                        }
+                    }
+                    shoti = stoi(shoti_string);
+                    shoti--;
+
+                    if (shoti < 0 or shoti > 9)
+                    {
+                        cout << "Некорректный ввод!";
+                        Sleep(1000);
+                        system("cls");
+                        cout_polya_PK(&pole_enemy[0][0], &pole_player[0][0], h, w, count_comp, count_player);
+                        continue;
+                    }
+                    //конец проверки
+
+
+                    if (pole[shoti][shotj] == 0)
+                    {//если выстрел произведён в пустую клетку
+                        pole_enemy[shoti][shotj] = '*';
+                        pole[shoti][shotj] = 3;
+                        system("cls");
+                        cout << "Мимо..." << endl;
+                        cout_polya_PK(&pole_enemy[0][0], &pole_player[0][0], h, w, count_comp, count_player);
+                        //cout_pole(&pole[0][0], h, w);
+                        WhoTurns = 0;
+                        break;
+                    }
+
+
+                    else if (pole[shoti][shotj] == 3 or pole[shoti][shotj] == 5 or pole[shoti][shotj] == 4)
+                    {//если выстрел произведён в клетку со звездой
+                        system("cls");
+                        //cout_pole(&pole[0][0], h, w);
+                        cout << "Клетка уже была поражена, выберите другие координаты" << endl;
+                        cout_polya_PK(&pole_enemy[0][0], &pole_player[0][0], h, w, count_comp, count_player);
+                        //cout_pole(&pole[0][0], h, w);
+                        continue;
+                    }
+
+
+                    else
+                    {//если совершено попадание
+                        int num = isDead(&pole[0][0], &pole_enemy[0][0], h, w, shoti, shotj);
+                        if (num == 0)
+                        {//если живых кораблей не найдено
+                            system("cls");
+                            count_comp--;
+                            cout << "Игра окончена!\nПоздравляю с победой, капитан!\nТак держать!\n";
+                            cout_polya_PK(&pole_enemy[0][0], &pole_player[0][0], h, w, count_comp, count_player);
+                            //return 0;
+                            system("pause");
+                            main();
+                        }
+                        if (pole[shoti][shotj] == 4)
+                        {
+                            system("cls");
+                            cout << "Убил! Так держать!\n";
+                            count_comp--;
+                        }
+                    }
+
+                    system("cls");
+                    cout << "Попадание!\n";
+                    cout_polya_PK(&pole_enemy[0][0], &pole_player[0][0], h, w, count_comp, count_player);
+                    //cout_pole(&pole[0][0], h, w);
+                    continue;
+
+                }
+            }
+
+            if (WhoTurns == 0) //комп делает выстрел
+            {
+                while (true)
+                {
+                    if (status == 0)
+                    {//рандомная стрельба
+                        /*cout << "\nСтреляет комп, введите координаты\n";
+                        cin >> shotj_comp;
+                        cin >> shoti_comp;
+                        shoti_comp--;
+                        shotj_comp--;*/
+                        shotj_comp = rand() % 10;
+                        shoti_comp = rand() % 10;
+
+                        if (polep[shoti_comp][shotj_comp] == 0)
+                        {//если попадание произведено в пустую клетку
+                            pole_player[shoti_comp][shotj_comp] = '*';
+                            polep[shoti_comp][shotj_comp] = 3;
+                            //cout << "Комп промазал, переход хода" << endl;
+                            system("cls");
+                            cout << "Мимо..." << endl;
+                            cout << "Последний выстрел компа: " << bukvs[shotj_comp] << "-" << shoti_comp + 1 << endl;
+                            cout_polya_PK(&pole_enemy[0][0], &pole_player[0][0], h, w, count_comp, count_player);
+                            //cout_pole(&polep[0][0], h, w);
+                            WhoTurns = 1;
+                            break;
+                        }
+
+                        else if (polep[shoti_comp][shotj_comp] == 3 or polep[shoti_comp][shotj_comp] == 5 or polep[shoti_comp][shotj_comp] == 4)
+                        {//если попадание произведено в клетку со звездой или в другую прострелянную клетку
+                            //cout << "Выстрел невозможен, координаты меняются..." << endl;
+                            continue;
+                        }
+                        else
+                        {//если комп попал
+                            status = 1;
+                            //cout << endl << "Смена статуса с 0 на 1" << endl;
+                            continue;
+                        }
+
+                    }
+
+                    else
+                    {
+
+                        while (true)
+                        {
+                            if (status == 1) //0 - рандомная стрельба, 1 - поиск направления и добивание
+                            {//поиск направления
+                                //cout << "status = " << status << endl;
+
+
+                                int num = isDead(&polep[0][0], &pole_player[0][0], h, w, shoti_comp, shotj_comp);
+                                if (num == 0)
+                                {
+                                    system("cls");
+                                    cout << "Сегодня удача явно не на вашей стороне, капитан...\nНо не отчаивайтесь, в следующий раз вам повезёт больше!\n";
+                                    count_player--;
+                                    for (int i = 0; i < h; i++)
+                                    {
+                                        for (int j = 0; j < w; j++)
+                                        {//отображение на чаровом поле компа оставшихся живых кораблей
+                                            if (pole[i][j] > 5)
+                                            {
+                                                pole_enemy[i][j] = '#';
+                                            }
+                                        }
+                                    }
+                                    cout_polya_PK(&pole_enemy[0][0], &pole_player[0][0], h, w, count_comp, count_player);
+                                    system("pause");
+                                    main();
+                                }
+                                if (polep[shoti_comp][shotj_comp] == 4)
+                                {//если комп убил однопалубный корабль
+                                    //cout << "Убит" << endl;
+                                    count_player--;
+                                    system("cls");
+                                    cout << "Мимо..." << endl;
+                                    cout << "Последний выстрел компа: " << bukvs[shotj_comp] << "-" << shoti_comp + 1 << endl;
+                                    cout_polya_PK(&pole_enemy[0][0], &pole_player[0][0], h, w, count_comp, count_player);                                    status = 0;
+                                    break;
+                                }
+                                //cout << "num = " << num << endl;
+                                //cout << "shotj_comp = " << shotj_comp + 1 << endl;
+                                //cout << "shoti_comp = " << shoti_comp + 1 << endl;
+
+                                int direction;
+                                if (polep[shoti_comp][shotj_comp] == 5 or polep[shoti_comp][shotj_comp] == 1)
+                                {//стрельба в рандомном направлении от координат последнего попадания
+                                    direction = rand() % 4;
+                                    //cout << "direction: " << direction << endl;
+                                    if (direction == 0 and shoti_comp - 1 >= 0 and polep[shoti_comp - 1][shotj_comp] != 3) //выстрел вверх
+                                    {
+                                        shoti_comp--; //переход на один вверх для выстрела
+                                        if (polep[shoti_comp][shotj_comp] == 0) //Комп не попал
+                                        {
+                                            //cout << "Комп промазал, переход хода" << endl;
+                                            polep[shoti_comp][shotj_comp] = 3;
+                                            pole_player[shoti_comp][shotj_comp] = '*';
+
+                                            WhoTurns = 1;
+                                            system("cls");
+                                            cout << "Мимо..." << endl;
+                                            cout << "Последний выстрел компа: " << bukvs[shotj_comp] << "-" << shoti_comp + 1 << endl;
+                                            shoti_comp++; //возврат на предыдущие координаты
+                                            cout_polya_PK(&pole_enemy[0][0], &pole_player[0][0], h, w, count_comp, count_player);                                            //cout_pole(&polep[0][0], h, w);
+                                            break;
+                                        }
+                                        else if (polep[shoti_comp][shotj_comp] > 5 and polep[shoti_comp][shotj_comp] < 10)//Комп попал
+                                        {
+                                            int num = isDead(&polep[0][0], &pole_player[0][0], h, w, shoti_comp, shotj_comp);
+                                            if (num == 0)
+                                            {//если комп последним убил двухпалубный
+                                                system("cls");
+                                                cout << "Сегодня удача явно не на вашей стороне, капитан...\nНо не отчаивайтесь, в следующий раз вам повезёт больше!\n";
+                                                count_player--;
+                                                for (int i = 0; i < h; i++)
+                                                {
+                                                    for (int j = 0; j < w; j++)
+                                                    {
+                                                        if (pole[i][j] > 5)
+                                                        {
+                                                            pole_enemy[i][j] = '#';
+                                                        }
+                                                    }
+                                                }
+                                                cout_polya_PK(&pole_enemy[0][0], &pole_player[0][0], h, w, count_comp, count_player);
+                                                system("pause");
+                                                main();
+                                            }
+                                            if (polep[shoti_comp][shotj_comp] == 5 or polep[shoti_comp][shotj_comp] == 1) //корабль ранен
+                                            {
+                                                //cout << "Смена статуса с 1 на 2" << endl;
+                                                //направление корабля определено
+                                                status = 2;
+                                                if (shotj_comp + 1 <= 9)        //координаты обводятся тройками, чтобы комп не бил в этих направлениях (возможно, можно упростить)
+                                                    polep[shoti_comp][shotj_comp + 1] = 3;
+                                                if (shotj_comp - 1 >= 0)
+                                                    polep[shoti_comp][shotj_comp - 1] = 3;
+                                                shoti_comp++;
+                                                if (shotj_comp + 1 <= 9)
+                                                    polep[shoti_comp][shotj_comp + 1] = 3;
+                                                if (shotj_comp - 1 >= 0)
+                                                    polep[shoti_comp][shotj_comp - 1] = 3;
+                                                shoti_comp--;
+
+                                                system("cls");
+                                                cout << "Мимо..." << endl;
+                                                cout << "Последний выстрел компа: " << bukvs[shotj_comp] << "-" << shoti_comp + 1 << endl;
+                                                cout_polya_PK(&pole_enemy[0][0], &pole_player[0][0], h, w, count_comp, count_player);                                                //cout_pole(&polep[0][0], h, w);
+                                                continue;
+                                            }
+                                            else
+                                            {//если комп убил двухпалубный
+                                                //cout << "Убит" << endl;
+                                                count_player--;
+                                                status = 0;
+                                                system("cls");
+                                                cout << "Мимо..." << endl;
+                                                cout << "Последний выстрел компа: " << bukvs[shotj_comp] << "-" << shoti_comp + 1 << endl;
+                                                cout_polya_PK(&pole_enemy[0][0], &pole_player[0][0], h, w, count_comp, count_player);                                                //cout_pole(&polep[0][0], h, w);
+                                                break;
+
+                                            }
+
+                                        }
+
+                                    }
+
+                                    else if (direction == 1 and shoti_comp + 1 <= 9 and polep[shoti_comp + 1][shotj_comp] != 3) //выстрел вниз
+                                    {
+                                        shoti_comp++;//переход на один вниз
+                                        if (polep[shoti_comp][shotj_comp] == 0) //Комп не попал
+                                        {
+                                            //cout << "Комп промазал, переход хода" << endl;
+                                            polep[shoti_comp][shotj_comp] = 3;
+                                            pole_player[shoti_comp][shotj_comp] = '*';
+
+                                            WhoTurns = 1;
+                                            system("cls");
+                                            cout << "Мимо..." << endl;
+                                            cout << "Последний выстрел компа: " << bukvs[shotj_comp] << "-" << shoti_comp + 1 << endl;
+                                            shoti_comp--; //возврат на предыдущие координаты
+                                            cout_polya_PK(&pole_enemy[0][0], &pole_player[0][0], h, w, count_comp, count_player);                                            //cout_pole(&polep[0][0], h, w);
+                                            break;
+                                        }
+                                        else if (polep[shoti_comp][shotj_comp] > 5 and polep[shoti_comp][shotj_comp] < 10)//Комп попал
+                                        {
+                                            int num = isDead(&polep[0][0], &pole_player[0][0], h, w, shoti_comp, shotj_comp);
+                                            if (num == 0)
+                                            {//если комп последним убил двухпалубный
+                                                system("cls");
+                                                cout << "Сегодня удача явно не на вашей стороне, капитан...\nНо не отчаивайтесь, в следующий раз вам повезёт больше!\n";
+                                                count_player--;
+                                                for (int i = 0; i < h; i++)
+                                                {//отображение оставшихся живых кораблей
+                                                    for (int j = 0; j < w; j++)
+                                                    {
+                                                        if (pole[i][j] > 5)
+                                                        {
+                                                            pole_enemy[i][j] = '#';
+                                                        }
+                                                    }
+                                                }
+                                                cout_polya_PK(&pole_enemy[0][0], &pole_player[0][0], h, w, count_comp, count_player);
+                                                system("pause");
+                                                main();
+                                            }
+                                            if (polep[shoti_comp][shotj_comp] == 5 or polep[shoti_comp][shotj_comp] == 1) //корабль ранен
+                                            {
+                                                //cout << "Смена статуса с 1 на 2" << endl;
+                                                status = 2;//направление определно
+                                                if (shotj_comp + 1 <= 9)        //координаты обводятся тройками, чтобы комп не бил в этих направлениях (возможно, можно упростить)
+                                                    polep[shoti_comp][shotj_comp + 1] = 3;
+                                                if (shotj_comp - 1 >= 0)
+                                                    polep[shoti_comp][shotj_comp - 1] = 3;
+                                                shoti_comp--;
+                                                if (shotj_comp + 1 <= 9)
+                                                    polep[shoti_comp][shotj_comp + 1] = 3;
+                                                if (shotj_comp - 1 >= 0)
+                                                    polep[shoti_comp][shotj_comp - 1] = 3;
+                                                shoti_comp++;
+                                                system("cls");
+                                                cout << "Мимо..." << endl;
+                                                cout << "Последний выстрел компа: " << bukvs[shotj_comp] << "-" << shoti_comp + 1 << endl;
+                                                cout_polya_PK(&pole_enemy[0][0], &pole_player[0][0], h, w, count_comp, count_player);                                                //cout_pole(&polep[0][0], h, w);
+                                                continue;
+                                            }
+
+                                            else
+                                            {//если комп убил двухпалубный
+                                                //cout << "Убит" << endl;
+                                                count_player--;
+                                                status = 0;
+                                                system("cls");
+                                                cout << "Мимо..." << endl;
+                                                cout << "Последний выстрел компа: " << bukvs[shotj_comp] << "-" << shoti_comp + 1 << endl;
+                                                cout_polya_PK(&pole_enemy[0][0], &pole_player[0][0], h, w, count_comp, count_player);                                                //cout_pole(&polep[0][0], h, w);
+                                                break;
+                                            }
+                                        }
+                                    }
+
+                                    else if (direction == 2 and shotj_comp + 1 <= 9 and polep[shoti_comp][shotj_comp + 1] != 3) //выстрел вправо
+                                    {
+                                        shotj_comp++;//переход на один вправо
+                                        if (polep[shoti_comp][shotj_comp] == 0) //Комп не попал
+                                        {
+                                            //cout << "Комп промазал, переход хода" << endl;
+                                            polep[shoti_comp][shotj_comp] = 3;
+                                            pole_player[shoti_comp][shotj_comp] = '*';
+
+                                            WhoTurns = 1;
+                                            system("cls");
+                                            cout << "Мимо..." << endl;
+                                            cout << "Последний выстрел компа: " << bukvs[shotj_comp] << "-" << shoti_comp + 1 << endl;
+                                            shotj_comp--;//возврат на предыдущие координаты
+                                            cout_polya_PK(&pole_enemy[0][0], &pole_player[0][0], h, w, count_comp, count_player);                                            //cout_pole(&polep[0][0], h, w);
+                                            break;
+                                        }
+                                        else if (polep[shoti_comp][shotj_comp] > 5 and polep[shoti_comp][shotj_comp] < 10)//Комп попал
+                                        {//если комп последним убил двухпалубный
+                                            int num = isDead(&polep[0][0], &pole_player[0][0], h, w, shoti_comp, shotj_comp);
+                                            if (num == 0)
+                                            {
+                                                system("cls");
+                                                cout << "Сегодня удача явно не на вашей стороне, капитан...\nНо не отчаивайтесь, в следующий раз вам повезёт больше!\n";
+                                                count_player--;
+                                                for (int i = 0; i < h; i++)
+                                                {
+                                                    for (int j = 0; j < w; j++)
+                                                    {//отображение оставшихся живых кораблей
+                                                        if (pole[i][j] > 5)
+                                                        {
+                                                            pole_enemy[i][j] = '#';
+                                                        }
+                                                    }
+                                                }
+                                                cout_polya_PK(&pole_enemy[0][0], &pole_player[0][0], h, w, count_comp, count_player);
+                                                system("pause");
+                                                main();
+                                            }
+                                            if (polep[shoti_comp][shotj_comp] == 5 or polep[shoti_comp][shotj_comp] == 1) //корабль ранен
+                                            {
+                                                //cout << "Смена статуса с 1 на 2" << endl;
+                                               //status = 2;//направление определено
+                                                if (shoti_comp + 1 <= 9)        //координаты обводятся тройками, чтобы комп не бил в этих направлениях (возможно, можно упростить)
+                                                    polep[shoti_comp + 1][shotj_comp] = 3;
+                                                if (shoti_comp - 1 >= 0)
+                                                    polep[shoti_comp - 1][shotj_comp] = 3;
+                                                shotj_comp--;
+                                                if (shoti_comp + 1 <= 9)
+                                                    polep[shoti_comp + 1][shotj_comp] = 3;
+                                                if (shoti_comp - 1 >= 0)
+                                                    polep[shoti_comp - 1][shotj_comp] = 3;
+                                                shotj_comp++;
+                                                system("cls");
+                                                cout << "Мимо..." << endl;
+                                                cout << "Последний выстрел компа: " << bukvs[shotj_comp] << "-" << shoti_comp + 1 << endl;
+                                                cout_polya_PK(&pole_enemy[0][0], &pole_player[0][0], h, w, count_comp, count_player);                                                //cout_pole(&polep[0][0], h, w);
+                                                continue;
+                                            }
+
+                                            else
+                                            {//если комп убил двухпалубный
+                                                //cout << "Убит" << endl;
+                                                count_player--;
+                                                status = 0;
+                                                system("cls");
+                                                cout << "Мимо..." << endl;
+                                                cout << "Последний выстрел компа: " << bukvs[shotj_comp] << "-" << shoti_comp + 1 << endl;
+                                                cout_polya_PK(&pole_enemy[0][0], &pole_player[0][0], h, w, count_comp, count_player);                                                //cout_pole(&polep[0][0], h, w);
+                                                break;
+                                            }
+                                        }
+                                    }
+
+                                    else if (direction == 3 and shotj_comp - 1 >= 0 and polep[shoti_comp][shotj_comp - 1] != 3) //выстрел влево
+                                    {
+                                        shotj_comp--;//переход на один влево
+                                        if (polep[shoti_comp][shotj_comp] == 0)
+                                        {
+                                            //cout << "Комп промазал, переход хода" << endl;
+                                            polep[shoti_comp][shotj_comp] = 3;
+                                            pole_player[shoti_comp][shotj_comp] = '*';
+
+                                            WhoTurns = 1;
+                                            system("cls");
+                                            cout << "Мимо..." << endl;
+                                            cout << "Последний выстрел компа: " << bukvs[shotj_comp] << "-" << shoti_comp + 1 << endl;
+                                            shotj_comp++;//возврат на предыдущие координаты
+                                            cout_polya_PK(&pole_enemy[0][0], &pole_player[0][0], h, w, count_comp, count_player);                                            //cout_pole(&polep[0][0], h, w);
+                                            break;
+                                        }
+                                        else if (polep[shoti_comp][shotj_comp] > 5 and polep[shoti_comp][shotj_comp] < 10)//Комп попал
+                                        {
+                                            int num = isDead(&polep[0][0], &pole_player[0][0], h, w, shoti_comp, shotj_comp);
+                                            if (num == 0)
+                                            {//если комп последним убил двухпалубный
+                                                system("cls");
+                                                cout << "Сегодня удача явно не на вашей стороне, капитан...\nНо не отчаивайтесь, в следующий раз вам повезёт больше!\n";
+                                                count_player--;
+                                                for (int i = 0; i < h; i++)
+                                                {
+                                                    for (int j = 0; j < w; j++)
+                                                    {//отображение оставшихся живых кораблей
+                                                        if (pole[i][j] > 5)
+                                                        {
+                                                            pole_enemy[i][j] = '#';
+                                                        }
+                                                    }
+                                                }
+                                                cout_polya_PK(&pole_enemy[0][0], &pole_player[0][0], h, w, count_comp, count_player);
+                                                system("pause");
+                                                main();
+                                            }
+                                            if (polep[shoti_comp][shotj_comp] == 5 or polep[shoti_comp][shotj_comp] == 1) //корабль ранен
+                                            {
+                                                //cout << "Смена статуса с 1 на 2" << endl;
+                                               //status = 2;//направление определено
+                                                if (shoti_comp + 1 <= 9)        //координаты обводятся тройками, чтобы комп не бил в этих направлениях (возможно, можно упростить)
+                                                    polep[shoti_comp + 1][shotj_comp] = 3;
+                                                if (shoti_comp - 1 >= 0)
+                                                    polep[shoti_comp - 1][shotj_comp] = 3;
+                                                shotj_comp++;
+                                                if (shoti_comp + 1 <= 9)
+                                                    polep[shoti_comp + 1][shotj_comp] = 3;
+                                                if (shoti_comp - 1 >= 0)
+                                                    polep[shoti_comp - 1][shotj_comp] = 3;
+                                                shotj_comp--;
+                                                system("cls");
+                                                cout << "Мимо..." << endl;
+                                                cout << "Последний выстрел компа: " << bukvs[shotj_comp] << "-" << shoti_comp + 1 << endl;
+                                                cout_polya_PK(&pole_enemy[0][0], &pole_player[0][0], h, w, count_comp, count_player);                                                //cout_pole(&polep[0][0], h, w);
+                                                continue;
+                                            }
+
+                                            else
+                                            {//если комп убил двухпалубный
+                                                //cout << "Убит" << endl;
+                                                count_player--;
+                                                status = 0;
+                                                system("cls");
+                                                cout << "Мимо..." << endl;
+                                                cout << "Последний выстрел компа: " << bukvs[shotj_comp] << "-" << shoti_comp + 1 << endl;
+                                                cout_polya_PK(&pole_enemy[0][0], &pole_player[0][0], h, w, count_comp, count_player);                                                //cout_pole(&polep[0][0], h, w);
+                                                break;
+                                            }
+                                        }
+                                    }
+
+
+                                    else if (polep[shoti_comp][shotj_comp - 1] == 3 or polep[shoti_comp][shotj_comp + 1] == 3 or polep[shoti_comp + 1][shotj_comp] == 3 or polep[shoti_comp - 1][shotj_comp] == 3)
+                                    {
+                                        //cout << "Смена направления" << endl;
+                                        direction = rand() % 4;
+                                        continue;
+                                    }
+                                }
+                            }
+
+
+                            break;
+                        }
+                        break;
+
+
+
+                        /*
+                            По-моему, всё же нужно как-то запоминать direction, так как были моменты, когда при выборе направления комп никак не мог выйти из цикла
+
+
+                            Bugs:
+                            На данный момент багов не обнаружено, все известные баги пофикшены или объявлены фичами
+
+
+                        */
+                    }
+
+                    break;
+                }
+            }
+        }
+    }
+
+    else if (choice == 3) //бой компа против компа
+    {
+        for (int i = 0; i < 10; i++)
+        {
+            for (int j = 0; j < 10; j++)
+            {
+                if (pole[i][j] > 5)
+                {
+                    pole_enemy[i][j] = '#';
+                }
+            }
+        }
+        clear3(&pole[0][0], h, w);
+
+        for (int i = 0; i < 10; i++)
+        {
+            for (int j = 0; j < 10; j++)
+            {
+                if (pole2[i][j] > 5)
+                {
+                    pole_enemy2[i][j] = '#';
+                }
+            }
+        }
+        clear3(&pole2[0][0], h, w);
+
+
+        int shoti_comp;
+        int shoti_comp2;
+        int shotj_comp;
+        int shotj_comp2;
+        int status = 0;
+        int status2 = 0;
+        int num;
+
+        while (true)
+        {
+
+            if (WhoTurns == 1) //комп 1 делает выстрел
+            {
+                while (true)
+                {
+                    //Sleep(500);
+                    //system("cls");
+                    if (status == 0)
+                    {
+                        /*cout << "\nСтреляет комп, введите координаты\n";
+                        cin >> shotj_comp;
+                        cin >> shoti_comp;
+                        shoti_comp--;
+                        shotj_comp--;*/
+                        shotj_comp = rand() % 10;
+                        shoti_comp = rand() % 10;
+
+                        if (pole2[shoti_comp][shotj_comp] == 0)
+                        {
+
+                            pole_enemy2[shoti_comp][shotj_comp] = '*';
+                            pole2[shoti_comp][shotj_comp] = 3;
+                            Sleep(500);
+                            system("cls");
+                            cout << "Комп-1 промазал, переход хода" << endl;
+                            cout << "Координаты выстрела: " << bukvs[shotj_comp] << "-" << shoti_comp + 1 << endl;
+                            cout_polya_KK(&pole_enemy[0][0], &pole_enemy2[0][0], h, w, count_comp1, count_comp2);
+                            //cout_pole(&pole2[0][0], h, w);
+                            WhoTurns = 0;
+                            break;
+                        }
+
+                        else if (pole2[shoti_comp][shotj_comp] == 3 or pole2[shoti_comp][shotj_comp] == 5 or pole2[shoti_comp][shotj_comp] == 4)
+                        {
+                            //cout << "Выстрел невозможен, координаты меняются..." << endl;
+                            continue;
+                        }
+                        else
+                        {
+                            status = 1;
+                            //cout << endl << "Смена статуса с 0 на 1" << endl;
+                            continue;
+                        }
+
+                    }
+                    else
+                    {
+
+                        /*//isDead(&pole2[0][0], &pole_enemy2[0][0], h, w, shoti_comp, shotj_comp);
+                        cout << "Комп попал!!!" << endl;
+                        cout << "Поле противника: " << endl;
+                        cout_pole_player(&pole_enemy[0][0], h, w);
+                        cout << "Ваше поле: " << endl;
+                        cout_pole_player(&pole_enemy2[0][0], h, w);
+                        continue;*/
+
+                        while (true)
+                        {
+                            if (status == 1) //0 - рандомная стрельба, 1 - начальный поиск, 2 - дальнейший поиск (после нахождения двух и более клеток)
+                            {
+                                //cout << "status = " << status << endl;
+
+
+                                int num = isDead(&pole2[0][0], &pole_enemy2[0][0], h, w, shoti_comp, shotj_comp);
+                                if (num == 0)
+                                {
+                                    count_comp2--;
+                                    Sleep(500);
+                                    system("cls");
+                                    cout << "Комп-1 одержал победу!" << endl;
+
+                                    cout_polya_KK(&pole_enemy[0][0], &pole_enemy2[0][0], h, w, count_comp1, count_comp2);
+                                    system("pause");
+                                    main();
+                                }
+                                if (pole2[shoti_comp][shotj_comp] == 4)
+                                {
+                                    //cout << "Убит" << endl;
+                                    count_comp2--;
+                                    Sleep(500);
+                                    system("cls");
+                                    cout << "Комп-1 потопил корабль противника!" << endl;
+                                    cout << "Координаты выстрела: " << bukvs[shotj_comp] << "-" << shoti_comp + 1 << endl;
+                                    cout_polya_KK(&pole_enemy[0][0], &pole_enemy2[0][0], h, w, count_comp1, count_comp2);
+                                    status = 0;
+                                    break;
+                                }
+                                //cout << "num = " << num << endl;
+                                //cout << "shotj_comp = " << shotj_comp + 1 << endl;
+                                //cout << "shoti_comp = " << shoti_comp + 1 << endl;
+
+                                int direction;
+                                if (pole2[shoti_comp][shotj_comp] == 5 or pole2[shoti_comp][shotj_comp] == 1)
+                                {
+                                    direction = rand() % 4;
+                                    //cout << "direction: " << direction << endl;
+                                    if (direction == 0 and shoti_comp - 1 >= 0 and pole2[shoti_comp - 1][shotj_comp] != 3) //выстрел вверх
+                                    {
+                                        shoti_comp--;
+                                        if (pole2[shoti_comp][shotj_comp] == 0) //Комп не попал
+                                        {
+                                            Sleep(500);
+                                            system("cls");
+                                            cout << "Комп-1 промазал, переход хода" << endl;
+                                            cout << "Координаты выстрела: " << bukvs[shotj_comp] << "-" << shoti_comp + 1 << endl;
+                                            pole2[shoti_comp][shotj_comp] = 3;
+                                            pole_enemy2[shoti_comp][shotj_comp] = '*';
+                                            shoti_comp++;
+                                            WhoTurns = 0;
+
+                                            cout_polya_KK(&pole_enemy[0][0], &pole_enemy2[0][0], h, w, count_comp1, count_comp2);
+                                            //cout_pole(&pole2[0][0], h, w);
+                                            break;
+                                        }
+                                        else if (pole2[shoti_comp][shotj_comp] > 5 and pole2[shoti_comp][shotj_comp] < 10)//Комп попал
+                                        {
+                                            int num = isDead(&pole2[0][0], &pole_enemy2[0][0], h, w, shoti_comp, shotj_comp);
+                                            if (num == 0)
+                                            {
+                                                count_comp2--;
+                                                Sleep(500);
+                                                system("cls");
+                                                cout << "Комп-1 одержал победу!" << endl;
+
+                                                cout_polya_KK(&pole_enemy[0][0], &pole_enemy2[0][0], h, w, count_comp1, count_comp2);
+                                                system("pause");
+                                                main();
+                                            }
+                                            if (pole2[shoti_comp][shotj_comp] == 5 or pole2[shoti_comp][shotj_comp] == 1) //корабль ранен
+                                            {
+                                                //cout << "Смена статуса с 1 на 2" << endl;
+                                                //status = 2;
+                                                if (shotj_comp + 1 <= 9)        //координаты обводятся тройками, чтобы комп не бил в этих направлениях (возможно, можно упростить)
+                                                    pole2[shoti_comp][shotj_comp + 1] = 3;
+                                                if (shotj_comp - 1 >= 0)
+                                                    pole2[shoti_comp][shotj_comp - 1] = 3;
+                                                shoti_comp++;
+                                                if (shotj_comp + 1 <= 9)
+                                                    pole2[shoti_comp][shotj_comp + 1] = 3;
+                                                if (shotj_comp - 1 >= 0)
+                                                    pole2[shoti_comp][shotj_comp - 1] = 3;
+                                                shoti_comp--;
+                                                Sleep(500);
+                                                system("cls");
+                                                cout << "Комп-1 попал!" << endl;
+                                                cout << "Координаты выстрела: " << bukvs[shotj_comp] << "-" << shoti_comp + 1 << endl;
+                                                cout_polya_KK(&pole_enemy[0][0], &pole_enemy2[0][0], h, w, count_comp1, count_comp2);
+                                                //cout_pole(&pole2[0][0], h, w);
+                                                continue;
+                                            }
+                                            else
+                                            {
+                                                //cout << "Убит" << endl;
+                                                count_comp2--;
+                                                status = 0;
+                                                Sleep(500);
+                                                system("cls");
+                                                cout << "Комп-1 потопил корабль противника!" << endl;
+                                                cout << "Координаты выстрела: " << bukvs[shotj_comp] << "-" << shoti_comp + 1 << endl;
+                                                cout_polya_KK(&pole_enemy[0][0], &pole_enemy2[0][0], h, w, count_comp1, count_comp2);
+                                                //cout_pole(&pole2[0][0], h, w);
+                                                break;
+
+                                            }
+
+                                        }
+
+                                    }
+
+                                    else if (direction == 1 and shoti_comp + 1 <= 9 and pole2[shoti_comp + 1][shotj_comp] != 3) //выстрел вниз
+                                    {
+                                        shoti_comp++;
+                                        if (pole2[shoti_comp][shotj_comp] == 0) //Комп не попал
+                                        {
+                                            Sleep(500);
+                                            system("cls");
+                                            cout << "Комп-1 промазал, переход хода" << endl;
+                                            cout << "Координаты выстрела: " << bukvs[shotj_comp] << "-" << shoti_comp + 1 << endl;
+                                            pole2[shoti_comp][shotj_comp] = 3;
+                                            pole_enemy2[shoti_comp][shotj_comp] = '*';
+                                            shoti_comp--;
+                                            WhoTurns = 0;
+                                            cout_polya_KK(&pole_enemy[0][0], &pole_enemy2[0][0], h, w, count_comp1, count_comp2);
+                                            //cout_pole(&pole2[0][0], h, w);
+                                            break;
+                                        }
+                                        else if (pole2[shoti_comp][shotj_comp] > 5 and pole2[shoti_comp][shotj_comp] < 10)//Комп попал
+                                        {
+                                            int num = isDead(&pole2[0][0], &pole_enemy2[0][0], h, w, shoti_comp, shotj_comp);
+                                            if (num == 0)
+                                            {
+                                                count_comp2--;
+                                                Sleep(500);
+                                                system("cls");
+                                                cout << "Комп-1 одержал победу!" << endl;
+
+                                                cout_polya_KK(&pole_enemy[0][0], &pole_enemy2[0][0], h, w, count_comp1, count_comp2);
+                                                system("pause");
+                                                main();
+                                            }
+                                            if (pole2[shoti_comp][shotj_comp] == 5 or pole2[shoti_comp][shotj_comp] == 1) //корабль ранен
+                                            {
+                                                //cout << "Смена статуса с 1 на 2" << endl;
+                                                //status = 2;
+                                                if (shotj_comp + 1 <= 9)        //координаты обводятся тройками, чтобы комп не бил в этих направлениях (возможно, можно упростить)
+                                                    pole2[shoti_comp][shotj_comp + 1] = 3;
+                                                if (shotj_comp - 1 >= 0)
+                                                    pole2[shoti_comp][shotj_comp - 1] = 3;
+                                                shoti_comp--;
+                                                if (shotj_comp + 1 <= 9)
+                                                    pole2[shoti_comp][shotj_comp + 1] = 3;
+                                                if (shotj_comp - 1 >= 0)
+                                                    pole2[shoti_comp][shotj_comp - 1] = 3;
+                                                shoti_comp++;
+                                                Sleep(500);
+                                                system("cls");
+                                                cout << "Комп-1 попал!" << endl;
+                                                cout << "Координаты выстрела: " << bukvs[shotj_comp] << "-" << shoti_comp + 1 << endl;
+                                                cout_polya_KK(&pole_enemy[0][0], &pole_enemy2[0][0], h, w, count_comp1, count_comp2);
+                                                //cout_pole(&pole2[0][0], h, w);
+                                                continue;
+                                            }
+
+                                            else
+                                            {
+                                                //cout << "Убит" << endl;
+                                                count_comp2--;
+                                                status = 0;
+                                                Sleep(500);
+                                                system("cls");
+                                                cout << "Комп-1 потопил корабль противника!" << endl;
+                                                cout << "Координаты выстрела: " << bukvs[shotj_comp] << "-" << shoti_comp + 1 << endl;
+                                                cout_polya_KK(&pole_enemy[0][0], &pole_enemy2[0][0], h, w, count_comp1, count_comp2);
+                                                //cout_pole(&pole2[0][0], h, w);
+                                                break;
+                                            }
+                                        }
+                                    }
+
+                                    else if (direction == 2 and shotj_comp + 1 <= 9 and pole2[shoti_comp][shotj_comp + 1] != 3) //выстрел вправо
+                                    {
+                                        shotj_comp++;
+                                        if (pole2[shoti_comp][shotj_comp] == 0)
+                                        {
+                                            Sleep(500);
+                                            system("cls");
+                                            cout << "Комп-1 промазал, переход хода" << endl;
+                                            cout << "Координаты выстрела: " << bukvs[shotj_comp] << "-" << shoti_comp + 1 << endl;
+                                            pole2[shoti_comp][shotj_comp] = 3;
+                                            pole_enemy2[shoti_comp][shotj_comp] = '*';
+                                            shotj_comp--;
+                                            WhoTurns = 0;
+                                            cout_polya_KK(&pole_enemy[0][0], &pole_enemy2[0][0], h, w, count_comp1, count_comp2);
+                                            //cout_pole(&pole2[0][0], h, w);
+                                            break;
+                                        }
+                                        else if (pole2[shoti_comp][shotj_comp] > 5 and pole2[shoti_comp][shotj_comp] < 10)//Комп попал
+                                        {
+                                            int num = isDead(&pole2[0][0], &pole_enemy2[0][0], h, w, shoti_comp, shotj_comp);
+                                            if (num == 0)
+                                            {
+                                                Sleep(500);
+                                                system("cls");
+                                                cout << "Комп-1 одержал победу!" << endl;
+
+                                                count_comp2--;
+                                                cout_polya_KK(&pole_enemy[0][0], &pole_enemy2[0][0], h, w, count_comp1, count_comp2);
+                                                system("pause");
+                                                main();
+                                            }
+                                            if (pole2[shoti_comp][shotj_comp] == 5 or pole2[shoti_comp][shotj_comp] == 1) //корабль ранен
+                                            {
+                                                //cout << "Смена статуса с 1 на 2" << endl;
+                                                //status = 2;
+                                                if (shoti_comp + 1 <= 9)        //координаты обводятся тройками, чтобы комп не бил в этих направлениях (возможно, можно упростить)
+                                                    pole2[shoti_comp + 1][shotj_comp] = 3;
+                                                if (shoti_comp - 1 >= 0)
+                                                    pole2[shoti_comp - 1][shotj_comp] = 3;
+                                                shotj_comp--;
+                                                if (shoti_comp + 1 <= 9)
+                                                    pole2[shoti_comp + 1][shotj_comp] = 3;
+                                                if (shoti_comp - 1 >= 0)
+                                                    pole2[shoti_comp - 1][shotj_comp] = 3;
+                                                shotj_comp++;
+                                                Sleep(500);
+                                                system("cls");
+                                                cout << "Комп-1 попал!" << endl;
+                                                cout << "Координаты выстрела: " << bukvs[shotj_comp] << "-" << shoti_comp + 1 << endl;
+                                                cout_polya_KK(&pole_enemy[0][0], &pole_enemy2[0][0], h, w, count_comp1, count_comp2);
+                                                //cout_pole(&pole2[0][0], h, w);
+                                                continue;
+                                            }
+
+                                            else
+                                            {
+                                                //cout << "Убит" << endl;
+                                                count_comp2--;
+                                                status = 0;
+                                                Sleep(500);
+                                                system("cls");
+                                                cout << "Комп-1 потопил корабль противника!" << endl;
+                                                cout << "Координаты выстрела: " << bukvs[shotj_comp] << "-" << shoti_comp + 1 << endl;
+                                                cout_polya_KK(&pole_enemy[0][0], &pole_enemy2[0][0], h, w, count_comp1, count_comp2);
+                                                //cout_pole(&pole2[0][0], h, w);
+                                                break;
+                                            }
+                                        }
+                                    }
+
+                                    else if (direction == 3 and shotj_comp - 1 >= 0 and pole2[shoti_comp][shotj_comp - 1] != 3) //выстрел влево
+                                    {
+                                        shotj_comp--;
+                                        if (pole2[shoti_comp][shotj_comp] == 0)
+                                        {
+                                            Sleep(500);
+                                            system("cls");
+                                            cout << "Комп-1 промазал, переход хода" << endl;
+                                            cout << "Координаты выстрела: " << bukvs[shotj_comp] << "-" << shoti_comp + 1 << endl;
+                                            pole2[shoti_comp][shotj_comp] = 3;
+                                            pole_enemy2[shoti_comp][shotj_comp] = '*';
+                                            shotj_comp++;
+                                            WhoTurns = 0;
+                                            cout_polya_KK(&pole_enemy[0][0], &pole_enemy2[0][0], h, w, count_comp1, count_comp2);
+                                            //cout_pole(&pole2[0][0], h, w);
+                                            break;
+                                        }
+                                        else if (pole2[shoti_comp][shotj_comp] > 5 and pole2[shoti_comp][shotj_comp] < 10)//Комп попал
+                                        {
+                                            int num = isDead(&pole2[0][0], &pole_enemy2[0][0], h, w, shoti_comp, shotj_comp);
+                                            if (num == 0)
+                                            {
+                                                count_comp2--;
+                                                Sleep(500);
+                                                system("cls");
+                                                cout << "Комп-1 одержал победу!" << endl;
+
+                                                cout_polya_KK(&pole_enemy[0][0], &pole_enemy2[0][0], h, w, count_comp1, count_comp2);
+                                                system("pause");
+                                                main();
+                                            }
+                                            if (pole2[shoti_comp][shotj_comp] == 5 or pole2[shoti_comp][shotj_comp] == 1) //корабль ранен
+                                            {
+                                                //cout << "Смена статуса с 1 на 2" << endl;
+                                                //status = 2;
+                                                if (shoti_comp + 1 <= 9)        //координаты обводятся тройками, чтобы комп не бил в этих направлениях (возможно, можно упростить)
+                                                    pole2[shoti_comp + 1][shotj_comp] = 3;
+                                                if (shoti_comp - 1 >= 0)
+                                                    pole2[shoti_comp - 1][shotj_comp] = 3;
+                                                shotj_comp++;
+                                                if (shoti_comp + 1 <= 9)
+                                                    pole2[shoti_comp + 1][shotj_comp] = 3;
+                                                if (shoti_comp - 1 >= 0)
+                                                    pole2[shoti_comp - 1][shotj_comp] = 3;
+                                                shotj_comp--;
+                                                Sleep(500);
+                                                system("cls");
+                                                cout << "Комп-1 попал!" << endl;
+                                                cout << "Координаты выстрела: " << bukvs[shotj_comp] << "-" << shoti_comp + 1 << endl;
+                                                cout_polya_KK(&pole_enemy[0][0], &pole_enemy2[0][0], h, w, count_comp1, count_comp2);
+                                                //cout_pole(&pole2[0][0], h, w);
+                                                continue;
+                                            }
+
+                                            else
+                                            {
+                                                //cout << "Убит" << endl;
+                                                count_comp2--;
+                                                status = 0;
+                                                Sleep(500);
+                                                system("cls");
+                                                cout << "Комп-1 потопил корабль противника!" << endl;
+                                                cout << "Координаты выстрела: " << bukvs[shotj_comp] << "-" << shoti_comp + 1 << endl;
+                                                cout_polya_KK(&pole_enemy[0][0], &pole_enemy2[0][0], h, w, count_comp1, count_comp2);
+                                                //cout_pole(&pole2[0][0], h, w);
+                                                break;
+                                            }
+                                        }
+                                    }
+
+
+                                    else if (pole2[shoti_comp][shotj_comp - 1] == 3 or pole2[shoti_comp][shotj_comp + 1] == 3 or pole2[shoti_comp + 1][shotj_comp] == 3 or pole2[shoti_comp - 1][shotj_comp] == 3)
+                                    {
+                                        //cout << "Смена направления" << endl;
+                                        direction = rand() % 4;
+                                        continue;
+                                    }
+                                }
+                                else if (pole2[shoti_comp][shotj_comp] == 4)
+                                {
+                                    count_comp2--;
+                                    status = 0;
+                                    //cout << "Убит";
+                                    break;
+                                }
+
+                            }
+
+                            break;
+                        }
+                        break;
+                    }
+                    break;
+                }
+            }
+
+            if (WhoTurns == 0) //комп-2 делает выстрел
+            {
+
+                while (true)
+                {
+
+                    if (status2 == 0)
+                    {
+                        /*cout << "\nСтреляет комп, введите координаты\n";
+                        cin >> shotj_comp2;
+                        cin >> shoti_comp2;
+                        shoti_comp2--;
+                        shotj_comp2--;*/
+                        shotj_comp2 = rand() % 10;
+                        shoti_comp2 = rand() % 10;
+
+                        if (pole[shoti_comp2][shotj_comp2] == 0)
+                        {
+                            pole_enemy[shoti_comp2][shotj_comp2] = '*';
+                            pole[shoti_comp2][shotj_comp2] = 3;
+                            Sleep(500);
+                            system("cls");
+                            cout << "Комп-2 промазал, переход хода" << endl;
+                            cout << "Координаты выстрела: " << bukvs[shotj_comp2] << "-" << shoti_comp2 + 1 << endl;
+                            cout_polya_KK(&pole_enemy[0][0], &pole_enemy2[0][0], h, w, count_comp1, count_comp2);
+                            //cout_pole(&pole[0][0], h, w);
+                            WhoTurns = 1;
+                            break;
+                        }
+
+                        else if (pole[shoti_comp2][shotj_comp2] == 3 or pole[shoti_comp2][shotj_comp2] == 5 or pole[shoti_comp2][shotj_comp2] == 4)
+                        {
+                            //cout << "Выстрел невозможен, координаты меняются..." << endl;
+                            continue;
+                        }
+                        else
+                        {
+                            status2 = 1;
+                            //cout << endl << "Смена статуса с 0 на 1" << endl;
+                            continue;
+                        }
+
+                    }
+                    else
+                    {
+
+                        /*//isDead(&pole[0][0], &pole_enemy[0][0], h, w, shoti_comp2, shotj_comp2);
+                        cout << "Комп попал!!!" << endl;
+                        cout << "Поле противника: " << endl;
+                        cout_pole_player(&pole_enemy[0][0], h, w);
+                        cout << "Ваше поле: " << endl;
+                        cout_pole_player(&pole_enemy[0][0], h, w);
+                        continue;*/
+
+                        while (true)
+                        {
+                            if (status2 == 1) //0 - рандомная стрельба, 1 - начальный поиск, 2 - дальнейший поиск (после нахождения двух и более клеток)
+                            {
+                                //cout << "status2 = " << status2 << endl;
+
+
+                                int num = isDead(&pole[0][0], &pole_enemy[0][0], h, w, shoti_comp2, shotj_comp2);
+                                if (num == 0)
+                                {
+                                    count_comp1--;
+                                    Sleep(500);
+                                    system("cls");
+                                    cout << "Комп-2 одержал победу!" << endl;
+
+                                    cout_polya_KK(&pole_enemy[0][0], &pole_enemy2[0][0], h, w, count_comp1, count_comp2);
+                                    system("pause");
+                                    main();
+                                }
+                                if (pole[shoti_comp2][shotj_comp2] == 4)
+                                {
+                                    //cout << "Убит" << endl;
+                                    count_comp1--;
+                                    Sleep(500);
+                                    system("cls");
+                                    cout << "Комп-2 потопил корабль противника!" << endl;
+                                    cout << "Координаты выстрела: " << bukvs[shotj_comp2] << "-" << shoti_comp2 + 1 << endl;
+                                    cout_polya_KK(&pole_enemy[0][0], &pole_enemy2[0][0], h, w, count_comp1, count_comp2);
+                                    status2 = 0;
+                                    break;
+                                }
+                                //cout << "num = " << num << endl;
+                                //cout << "shotj_comp2 = " << shotj_comp2 + 1 << endl;
+                                //cout << "shoti_comp2 = " << shoti_comp2 + 1 << endl;
+
+                                int direction;
+                                if (pole[shoti_comp2][shotj_comp2] == 5 or pole[shoti_comp2][shotj_comp2] == 1)
+                                {
+                                    direction = rand() % 4;
+                                    //cout << "direction: " << direction << endl;
+                                    if (direction == 0 and shoti_comp2 - 1 >= 0 and pole[shoti_comp2 - 1][shotj_comp2] != 3) //выстрел вверх
+                                    {
+                                        shoti_comp2--;
+                                        if (pole[shoti_comp2][shotj_comp2] == 0) //Комп не попал
+                                        {
+                                            Sleep(500);
+                                            system("cls");
+                                            cout << "Комп-2 промазал, переход хода" << endl;
+                                            cout << "Координаты выстрела: " << bukvs[shotj_comp2] << "-" << shoti_comp2 + 1 << endl;
+                                            pole[shoti_comp2][shotj_comp2] = 3;
+                                            pole_enemy[shoti_comp2][shotj_comp2] = '*';
+                                            shoti_comp2++;
+                                            WhoTurns = 1;
+                                            cout_polya_KK(&pole_enemy[0][0], &pole_enemy2[0][0], h, w, count_comp1, count_comp2);
+                                            //cout_pole(&pole[0][0], h, w);
+                                            break;
+                                        }
+                                        else if (pole[shoti_comp2][shotj_comp2] > 5 and pole[shoti_comp2][shotj_comp2] < 10)//Комп попал
+                                        {
+                                            int num = isDead(&pole[0][0], &pole_enemy[0][0], h, w, shoti_comp2, shotj_comp2);
+                                            if (num == 0)
+                                            {
+                                                count_comp1--;
+                                                Sleep(500);
+                                                system("cls");
+                                                cout << "Комп-2 одержал победу!" << endl;
+                                                cout_polya_KK(&pole_enemy[0][0], &pole_enemy2[0][0], h, w, count_comp1, count_comp2);
+                                                system("pause");
+                                                main();
+                                            }
+                                            if (pole[shoti_comp2][shotj_comp2] == 5 or pole[shoti_comp2][shotj_comp2] == 1) //корабль ранен
+                                            {
+                                                //cout << "Смена статуса с 1 на 2" << endl;
+                                                //status2 = 2;
+                                                if (shotj_comp2 + 1 <= 9)        //координаты обводятся тройками, чтобы комп не бил в этих направлениях (возможно, можно упростить)
+                                                    pole[shoti_comp2][shotj_comp2 + 1] = 3;
+                                                if (shotj_comp2 - 1 >= 0)
+                                                    pole[shoti_comp2][shotj_comp2 - 1] = 3;
+                                                shoti_comp2++;
+                                                if (shotj_comp2 + 1 <= 9)
+                                                    pole[shoti_comp2][shotj_comp2 + 1] = 3;
+                                                if (shotj_comp2 - 1 >= 0)
+                                                    pole[shoti_comp2][shotj_comp2 - 1] = 3;
+                                                shoti_comp2--;
+
+                                                Sleep(500);
+                                                system("cls");
+                                                cout << "Комп-2 попал!" << endl;
+                                                cout << "Координаты выстрела: " << bukvs[shotj_comp2] << "-" << shoti_comp2 + 1 << endl;
+                                                cout_polya_KK(&pole_enemy[0][0], &pole_enemy2[0][0], h, w, count_comp1, count_comp2);
+                                                //cout_pole(&pole[0][0], h, w);
+                                                continue;
+                                            }
+                                            else
+                                            {
+                                                //cout << "Убит" << endl;
+                                                count_comp1--;
+                                                status2 = 0;
+                                                Sleep(500);
+                                                system("cls");
+                                                cout << "Комп-2 потопил корабль противника!" << endl;
+                                                cout << "Координаты выстрела: " << bukvs[shotj_comp2] << "-" << shoti_comp2 + 1 << endl;
+                                                cout_polya_KK(&pole_enemy[0][0], &pole_enemy2[0][0], h, w, count_comp1, count_comp2);
+                                                //cout_pole(&pole[0][0], h, w);
+                                                break;
+
+                                            }
+
+                                        }
+
+                                    }
+
+                                    else if (direction == 1 and shoti_comp2 + 1 <= 9 and pole[shoti_comp2 + 1][shotj_comp2] != 3) //выстрел вниз
+                                    {
+                                        shoti_comp2++;
+                                        if (pole[shoti_comp2][shotj_comp2] == 0) //Комп не попал
+                                        {
+                                            Sleep(500);
+                                            system("cls");
+                                            cout << "Комп-2 промазал, переход хода" << endl;
+                                            cout << "Координаты выстрела: " << bukvs[shotj_comp2] << "-" << shoti_comp2 + 1 << endl;
+                                            pole[shoti_comp2][shotj_comp2] = 3;
+                                            pole_enemy[shoti_comp2][shotj_comp2] = '*';
+                                            shoti_comp2--;
+                                            WhoTurns = 1;
+
+                                            cout_polya_KK(&pole_enemy[0][0], &pole_enemy2[0][0], h, w, count_comp1, count_comp2);
+                                            //cout_pole(&pole[0][0], h, w);
+                                            break;
+                                        }
+                                        else if (pole[shoti_comp2][shotj_comp2] > 5 and pole[shoti_comp2][shotj_comp2] < 10)//Комп попал
+                                        {
+                                            int num = isDead(&pole[0][0], &pole_enemy[0][0], h, w, shoti_comp2, shotj_comp2);
+                                            if (num == 0)
+                                            {
+                                                count_comp1--;
+                                                Sleep(500);
+                                                system("cls");
+                                                cout << "Комп-2 одержал победу!" << endl;
+                                                cout_polya_KK(&pole_enemy[0][0], &pole_enemy2[0][0], h, w, count_comp1, count_comp2);
+                                                system("pause");
+                                                main();
+                                            }
+                                            if (pole[shoti_comp2][shotj_comp2] == 5 or pole[shoti_comp2][shotj_comp2] == 1) //корабль ранен
+                                            {
+                                                //cout << "Смена статуса с 1 на 2" << endl;
+                                                //status2 = 2;
+                                                if (shotj_comp2 + 1 <= 9)        //координаты обводятся тройками, чтобы комп не бил в этих направлениях (возможно, можно упростить)
+                                                    pole[shoti_comp2][shotj_comp2 + 1] = 3;
+                                                if (shotj_comp2 - 1 >= 0)
+                                                    pole[shoti_comp2][shotj_comp2 - 1] = 3;
+                                                shoti_comp2--;
+                                                if (shotj_comp2 + 1 <= 9)
+                                                    pole[shoti_comp2][shotj_comp2 + 1] = 3;
+                                                if (shotj_comp2 - 1 >= 0)
+                                                    pole[shoti_comp2][shotj_comp2 - 1] = 3;
+                                                shoti_comp2++;
+                                                Sleep(500);
+                                                system("cls");
+                                                cout << "Комп-2 попал!" << endl;
+                                                cout << "Координаты выстрела: " << bukvs[shotj_comp2] << "-" << shoti_comp2 + 1 << endl;
+                                                cout_polya_KK(&pole_enemy[0][0], &pole_enemy2[0][0], h, w, count_comp1, count_comp2);
+                                                //cout_pole(&pole[0][0], h, w);
+                                                continue;
+                                            }
+
+                                            else
+                                            {
+                                                //cout << "Убит" << endl;
+                                                count_comp1--;
+                                                status2 = 0;
+                                                Sleep(500);
+                                                system("cls");
+                                                cout << "Комп-2 потопил корабль противника!" << endl;
+                                                cout << "Координаты выстрела: " << bukvs[shotj_comp2] << "-" << shoti_comp2 + 1 << endl;
+                                                cout_polya_KK(&pole_enemy[0][0], &pole_enemy2[0][0], h, w, count_comp1, count_comp2);
+                                                //cout_pole(&pole[0][0], h, w);
+                                                break;
+                                            }
+                                        }
+                                    }
+
+                                    else if (direction == 2 and shotj_comp2 + 1 <= 9 and pole[shoti_comp2][shotj_comp2 + 1] != 3) //выстрел вправо
+                                    {
+                                        shotj_comp2++;
+                                        if (pole[shoti_comp2][shotj_comp2] == 0)
+                                        {
+                                            Sleep(500);
+                                            system("cls");
+                                            cout << "Комп-2 промазал, переход хода" << endl;
+                                            cout << "Координаты выстрела: " << bukvs[shotj_comp2] << "-" << shoti_comp2 + 1 << endl;
+                                            pole[shoti_comp2][shotj_comp2] = 3;
+                                            pole_enemy[shoti_comp2][shotj_comp2] = '*';
+                                            shotj_comp2--;
+                                            WhoTurns = 1;
+                                            cout_polya_KK(&pole_enemy[0][0], &pole_enemy2[0][0], h, w, count_comp1, count_comp2);
+                                            //cout_pole(&pole[0][0], h, w);
+                                            break;
+                                        }
+                                        else if (pole[shoti_comp2][shotj_comp2] > 5 and pole[shoti_comp2][shotj_comp2] < 10)//Комп попал
+                                        {
+                                            int num = isDead(&pole[0][0], &pole_enemy[0][0], h, w, shoti_comp2, shotj_comp2);
+                                            if (num == 0)
+                                            {
+                                                count_comp1--;
+                                                Sleep(500);
+                                                system("cls");
+                                                cout << "Комп-2 одержал победу!" << endl;
+                                                cout_polya_KK(&pole_enemy[0][0], &pole_enemy2[0][0], h, w, count_comp1, count_comp2);
+                                                system("pause");
+                                                main();
+                                            }
+                                            if (pole[shoti_comp2][shotj_comp2] == 5 or pole[shoti_comp2][shotj_comp2] == 1) //корабль ранен
+                                            {
+                                                //cout << "Смена статуса с 1 на 2" << endl;
+                                                //status2 = 2;
+                                                if (shoti_comp2 + 1 <= 9)        //координаты обводятся тройками, чтобы комп не бил в этих направлениях (возможно, можно упростить)
+                                                    pole[shoti_comp2 + 1][shotj_comp2] = 3;
+                                                if (shoti_comp2 - 1 >= 0)
+                                                    pole[shoti_comp2 - 1][shotj_comp2] = 3;
+                                                shotj_comp2--;
+                                                if (shoti_comp2 + 1 <= 9)
+                                                    pole[shoti_comp2 + 1][shotj_comp2] = 3;
+                                                if (shoti_comp2 - 1 >= 0)
+                                                    pole[shoti_comp2 - 1][shotj_comp2] = 3;
+                                                shotj_comp2++;
+                                                Sleep(500);
+                                                system("cls");
+                                                cout << "Комп-2 попал!" << endl;
+                                                cout << "Координаты выстрела: " << bukvs[shotj_comp2] << "-" << shoti_comp2 + 1 << endl;
+                                                cout_polya_KK(&pole_enemy[0][0], &pole_enemy2[0][0], h, w, count_comp1, count_comp2);
+                                                //cout_pole(&pole[0][0], h, w);
+                                                continue;
+                                            }
+
+                                            else
+                                            {
+                                                //cout << "Убит" << endl;
+                                                count_comp1--;
+                                                status2 = 0;
+                                                Sleep(500);
+                                                system("cls");
+                                                cout << "Комп-2 потопил корабль противника!" << endl;
+                                                cout << "Координаты выстрела: " << bukvs[shotj_comp2] << "-" << shoti_comp2 + 1 << endl;
+                                                cout_polya_KK(&pole_enemy[0][0], &pole_enemy2[0][0], h, w, count_comp1, count_comp2);
+                                                //cout_pole(&pole[0][0], h, w);
+                                                break;
+                                            }
+                                        }
+                                    }
+
+                                    else if (direction == 3 and shotj_comp2 - 1 >= 0 and pole[shoti_comp2][shotj_comp2 - 1] != 3) //выстрел влево
+                                    {
+                                        shotj_comp2--;
+                                        if (pole[shoti_comp2][shotj_comp2] == 0)
+                                        {
+                                            Sleep(500);
+                                            system("cls");
+                                            cout << "Комп-2 промазал, переход хода" << endl;
+                                            cout << "Координаты выстрела: " << bukvs[shotj_comp2] << "-" << shoti_comp2 + 1 << endl;
+                                            pole[shoti_comp2][shotj_comp2] = 3;
+                                            pole_enemy[shoti_comp2][shotj_comp2] = '*';
+                                            shotj_comp2++;
+                                            WhoTurns = 1;
+                                            cout_polya_KK(&pole_enemy[0][0], &pole_enemy2[0][0], h, w, count_comp1, count_comp2);
+                                            //cout_pole(&pole[0][0], h, w);
+                                            break;
+                                        }
+                                        else if (pole[shoti_comp2][shotj_comp2] > 5 and pole[shoti_comp2][shotj_comp2] < 10)//Комп попал
+                                        {
+                                            int num = isDead(&pole[0][0], &pole_enemy[0][0], h, w, shoti_comp2, shotj_comp2);
+                                            if (num == 0)
+                                            {
+                                                count_comp1--;
+                                                Sleep(500);
+                                                system("cls");
+                                                cout << "Комп-2 одержал победу!" << endl;
+                                                cout_polya_KK(&pole_enemy[0][0], &pole_enemy2[0][0], h, w, count_comp1, count_comp2);
+                                                system("pause");
+                                                main();
+                                            }
+                                            if (pole[shoti_comp2][shotj_comp2] == 5 or pole[shoti_comp2][shotj_comp2] == 1) //корабль ранен
+                                            {
+                                                //cout << "Смена статуса с 1 на 2" << endl;
+                                                //status2 = 2;
+                                                if (shoti_comp2 + 1 <= 9)        //координаты обводятся тройками, чтобы комп не бил в этих направлениях (возможно, можно упростить)
+                                                    pole[shoti_comp2 + 1][shotj_comp2] = 3;
+                                                if (shoti_comp2 - 1 >= 0)
+                                                    pole[shoti_comp2 - 1][shotj_comp2] = 3;
+                                                shotj_comp2++;
+                                                if (shoti_comp2 + 1 <= 9)
+                                                    pole[shoti_comp2 + 1][shotj_comp2] = 3;
+                                                if (shoti_comp2 - 1 >= 0)
+                                                    pole[shoti_comp2 - 1][shotj_comp2] = 3;
+                                                shotj_comp2--;
+                                                Sleep(500);
+                                                system("cls");
+                                                cout << "Комп-2 попал!" << endl;
+                                                cout << "Координаты выстрела: " << bukvs[shotj_comp2] << "-" << shoti_comp2 + 1 << endl;
+                                                cout_polya_KK(&pole_enemy[0][0], &pole_enemy2[0][0], h, w, count_comp1, count_comp2);
+                                                //cout_pole(&pole[0][0], h, w);
+                                                continue;
+                                            }
+
+                                            else
+                                            {
+                                                //cout << "Убит" << endl;
+                                                count_comp1--;
+                                                status2 = 0;
+                                                Sleep(500);
+                                                system("cls");
+                                                cout << "Комп-2 потопил корабль противника!" << endl;
+                                                cout << "Координаты выстрела: " << bukvs[shotj_comp2] << "-" << shoti_comp2 + 1 << endl;
+                                                cout_polya_KK(&pole_enemy[0][0], &pole_enemy2[0][0], h, w, count_comp1, count_comp2);
+                                                //cout_pole(&pole[0][0], h, w);
+                                                break;
+                                            }
+                                        }
+                                    }
+
+                                    else if (pole[shoti_comp2][shotj_comp2 - 1] == 3 or pole[shoti_comp2][shotj_comp2 + 1] == 3 or pole[shoti_comp2 + 1][shotj_comp2] == 3 or pole[shoti_comp2 - 1][shotj_comp2] == 3)
+                                    {
+                                        //cout << "Смена направления" << endl;
+                                        direction = rand() % 4;
+                                        continue;
+                                    }
+                                }
+                                else if (pole[shoti_comp2][shotj_comp2] == 4)
+                                {
+                                    count_comp1--;
+                                    status2 = 0;
+                                    //cout << "Убит";
+                                    break;
+                                }
+
+                            }
+
+                            break;
+                        }
+                        break;
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
+    //Система боя компа против компа может работать с багами, но за время нескольких запусков багов не найдено, за время тестов побеждал каждый из компов
+
+    //CTRL + K, CTRL + C - закомментировать
+    //CTRL + K, CTRL + U - раскомментировать
+
+    std::system("pause");
+
+}
